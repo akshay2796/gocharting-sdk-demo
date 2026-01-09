@@ -5,7 +5,7 @@
 	"dependencies": {
 		"@emotion/react": "^11.14.0",
 		"@emotion/styled": "^11.14.1",
-		"@gocharting/chart-sdk": "file:../gocharting-web-sdk/GoCharting-SDK",
+		"@gocharting/chart-sdk": "^1.0.22",
 		"@testing-library/dom": "^10.4.0",
 		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/react": "^16.1.0",
