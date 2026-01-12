@@ -7,6 +7,9 @@ import type {
 	Order,
 	Trade,
 	Position,
+	OrderSide,
+	OrderType as SDKOrderType,
+	OrderStatus,
 } from "@gocharting/chart-sdk";
 import "./ChartSDKAdvanced.css";
 
@@ -26,6 +29,77 @@ interface OrderHistoryItem {
 	stopLoss?: string;
 	takeProfit?: string;
 	status: string;
+}
+
+/**
+ * Security information from SDK
+ */
+interface SecurityData {
+	exchange?: string;
+	symbol?: string;
+	full_name?: string;
+	productType?: string;
+	segment?: string;
+}
+
+/**
+ * Order details from UI or SDK callbacks
+ */
+interface OrderDetails {
+	orderId?: string;
+	price?: number;
+	size?: number;
+	quantity?: number;
+	productId?: string;
+	orderType?: string;
+	side?: OrderSide;
+	takeProfit?: number | string | null;
+	stopLoss?: number | string | null;
+	stopPrice?: number | null;
+	symbol?: string;
+}
+
+/**
+ * Input data for creating/modifying orders from UI or SDK callbacks
+ */
+interface OrderInputData {
+	order?: OrderDetails;
+	security?: SecurityData;
+	orderId?: string;
+	price?: number;
+	size?: number;
+	quantity?: number;
+	symbol?: string;
+	orderType?: string;
+	type?: string;
+	side?: OrderSide;
+	takeProfit?: number | string | null;
+	stopLoss?: number | string | null;
+	stopPrice?: number | null;
+	ltp?: number;
+}
+
+/**
+ * Demo account structure for trading
+ * Extends SDK Account with additional demo-specific fields
+ */
+interface DemoAccount {
+	id: string;
+	name: string;
+	balance: number;
+	currency: string;
+	broker?: string;
+	leverage?: number;
+	marginUsed?: number;
+	marginAvailable?: number;
+	// Additional demo-specific fields
+	account_id?: string;
+	AccountID?: string;
+	AccountType?: string;
+	label?: string;
+	equity?: number;
+	margin?: number;
+	freeMargin?: number;
 }
 
 export const ChartSDKAdvanced = () => {
@@ -56,8 +130,10 @@ export const ChartSDKAdvanced = () => {
 	const currentOrderBook = useRef<Order[]>([]);
 	const currentTradeBook = useRef<Trade[]>([]);
 	const currentPositions = useRef<Position[]>([]);
-	const currentAccountList = useRef<any[]>([
+	const currentAccountList = useRef<DemoAccount[]>([
 		{
+			id: "DEMO_001",
+			name: "Demo Account (Trading)",
 			account_id: "DEMO_001",
 			AccountID: "DEMO_001",
 			AccountType: "Demo Trading",
@@ -114,7 +190,7 @@ export const ChartSDKAdvanced = () => {
 			return;
 		}
 
-		const demoBrokerData = {
+		const demoBrokerData: GoChartingSDK.BrokerAccountData = {
 			accountList: currentAccountList.current,
 			orderBook: currentOrderBook.current,
 			tradeBook: currentTradeBook.current,
@@ -122,7 +198,7 @@ export const ChartSDKAdvanced = () => {
 		};
 
 		try {
-			chartWrapperRef.current.setBrokerAccounts(demoBrokerData as any);
+			chartWrapperRef.current.setBrokerAccounts(demoBrokerData);
 			console.log("✅ Broker data updated successfully");
 		} catch (error) {
 			console.error("❌ Failed to update chart broker data:", error);
@@ -140,7 +216,7 @@ export const ChartSDKAdvanced = () => {
 		};
 
 		try {
-			chartInstance.setBrokerAccounts(demoBrokerData as any);
+			chartInstance.setBrokerAccounts(demoBrokerData);
 			console.log("✅ Demo broker data set successfully");
 			setStatus("🏦 Demo trading data loaded");
 		} catch (error) {
@@ -212,6 +288,8 @@ export const ChartSDKAdvanced = () => {
 					console.log("==========================================");
 
 					setupDemoBrokerData(chartInstance);
+
+					chartWrapperRef.current = chartInstance;
 				},
 				onError: (error) => {
 					console.error("Chart creation error:", error);
@@ -228,7 +306,6 @@ export const ChartSDKAdvanced = () => {
 				"#gocharting-chart-container-advanced",
 				chartConfig
 			);
-			chartWrapperRef.current = chartWrapper;
 		} catch (error) {
 			console.error("Error initializing chart:", error);
 			setStatus("Failed to initialize chart");
@@ -299,7 +376,7 @@ export const ChartSDKAdvanced = () => {
 		}
 	};
 
-	const addOrderToOrderBook = (orderData: any) => {
+	const addOrderToOrderBook = (orderData: OrderInputData) => {
 		console.log("🔍 ===== ADD ORDER TO ORDER BOOK DEBUG =====");
 		console.log(
 			"📝 Raw order data received:",
@@ -311,8 +388,9 @@ export const ChartSDKAdvanced = () => {
 			return;
 		}
 
-		const order = orderData.order || orderData;
-		const security = orderData.security || {};
+		// Extract order details - prefer nested order object if present
+		const order: OrderDetails = orderData.order || {};
+		const security: SecurityData = orderData.security || {};
 		const ltp = orderData.ltp || getCurrentLTP();
 
 		const orderId =
@@ -322,36 +400,41 @@ export const ChartSDKAdvanced = () => {
 				.toString(36)
 				.substring(2, 11)}`;
 
+		const orderSize =
+			order.size ||
+			order.quantity ||
+			orderData.quantity ||
+			orderData.size ||
+			0;
+
+		const symbolName = (
+			security.symbol ||
+			order.symbol ||
+			orderData.symbol ||
+			currentSymbol.current
+		).replace("BYBIT:FUTURE:", "");
+
+		const productId =
+			order.productId ||
+			security.full_name ||
+			orderData.symbol ||
+			currentSymbol.current;
+
 		const newOrder: Order = {
 			orderId: orderId,
 			datetime: new Date(),
 			timeStamp: new Date().getTime(),
 			lastTradeTimestamp: null,
-			status: "open" as any,
+			status: "open" as OrderStatus,
 			price: order.price || orderData.price || 0,
-			size:
-				order.size ||
-				order.quantity ||
-				orderData.quantity ||
-				orderData.size ||
-				0,
-			productId:
-				order.productId ||
-				security.full_name ||
-				orderData.symbol ||
-				currentSymbol.current,
-			remainingSize:
-				order.size ||
-				order.quantity ||
-				orderData.quantity ||
-				orderData.size ||
-				0,
-			orderType:
-				order.orderType ||
+			size: orderSize,
+			productId: productId,
+			remainingSize: orderSize,
+			orderType: (order.orderType ||
 				orderData.orderType ||
 				orderData.type ||
-				"limit",
-			side: order.side || orderData.side || "buy",
+				"limit") as SDKOrderType,
+			side: (order.side || orderData.side || "buy") as OrderSide,
 			cost: null,
 			trades: [],
 			fee: {
@@ -360,17 +443,12 @@ export const ChartSDKAdvanced = () => {
 				rate: 0.0,
 			},
 			info: {},
-			fillPrice: null as any,
-			avgFillPrice: null as any,
+			fillPrice: null,
+			avgFillPrice: null,
 			filledSize: 0,
-			modifiedAt: null as any,
+			modifiedAt: null,
 			exchange: security.exchange || "BYBIT",
-			symbol: (
-				security.symbol ||
-				order.symbol ||
-				orderData.symbol ||
-				currentSymbol.current
-			).replace("BYBIT:FUTURE:", ""),
+			symbol: symbolName,
 			takeProfit: order.takeProfit || orderData.takeProfit || null,
 			stopLoss: order.stopLoss || orderData.stopLoss || null,
 			isGC: true,
@@ -748,8 +826,8 @@ export const ChartSDKAdvanced = () => {
 
 	// UI Handlers
 	const handleBuyOrder = () => {
-		const orderData = {
-			side: "buy",
+		const orderData: OrderInputData = {
+			side: "buy" as OrderSide,
 			quantity: quantity,
 			orderType: orderType,
 			price: orderType === "limit" ? parseFloat(limitPrice) || 0 : 0,
@@ -764,8 +842,8 @@ export const ChartSDKAdvanced = () => {
 	};
 
 	const handleSellOrder = () => {
-		const orderData = {
-			side: "sell",
+		const orderData: OrderInputData = {
+			side: "sell" as OrderSide,
 			quantity: quantity,
 			orderType: orderType,
 			price: orderType === "limit" ? parseFloat(limitPrice) || 0 : 0,

@@ -224,6 +224,15 @@ interface MockSymbolData {
 }
 
 /**
+ * Bybit feed message structure for demo streaming
+ */
+interface BybitFeedMessage {
+	topic?: string;
+	type?: string;
+	data?: BybitTradeData[];
+}
+
+/**
  * Datafeed configuration ready callback config
  */
 interface DatafeedConfig {
@@ -1497,7 +1506,7 @@ export const createChartDatafeed = () => {
 				if (!subscriptionItem) continue;
 
 				const handlerIndex = subscriptionItem.handlers.findIndex(
-					(handler: any) => handler.id === subscriberUID
+					(handler: StreamingHandler) => handler.id === subscriberUID
 				);
 
 				if (handlerIndex !== -1) {
@@ -1534,7 +1543,7 @@ export const createChartDatafeed = () => {
 		},
 
 		// Initialize socket (mirroring streaming.js socket initialization)
-		initializeDemoSocket(symbolInfo: any) {
+		initializeDemoSocket(symbolInfo: SymbolInfo) {
 			if (
 				this.demoSocket &&
 				this.demoSocket.readyState === WebSocket.OPEN
@@ -1545,32 +1554,33 @@ export const createChartDatafeed = () => {
 			// Create real Bybit WebSocket for BYBIT symbols, mock for others
 			if (symbolInfo.exchange === "BYBIT") {
 				const uri = this.getBybitWebSocketUrl(symbolInfo);
-				this.demoSocket = new WebSocket(uri);
+				const ws = new WebSocket(uri);
+				this.demoSocket = ws;
 
-				this.demoSocket.addEventListener("open", () => {
+				ws.addEventListener("open", () => {
 					console.log(
 						"🔌 [DemoDatafeed] Connected to Bybit WebSocket"
 					);
 				});
 
-				this.demoSocket.addEventListener("close", (reason: any) => {
+				ws.addEventListener("close", (event: CloseEvent) => {
 					console.log(
 						"🔌 [DemoDatafeed] Bybit WebSocket disconnected:",
-						reason
+						event.reason || event.code
 					);
 				});
 
-				this.demoSocket.addEventListener("error", (error: any) => {
+				ws.addEventListener("error", (event: Event) => {
 					console.log(
 						"🔌 [DemoDatafeed] Bybit WebSocket error:",
-						error
+						event
 					);
 					console.error(
 						"WebSocket connection failed. Please check network connectivity and URL."
 					);
 				});
 
-				this.demoSocket.addEventListener("message", (event: any) => {
+				ws.addEventListener("message", (event: MessageEvent) => {
 					this.handleBybitMessage(event);
 				});
 			} else {
@@ -1609,7 +1619,7 @@ export const createChartDatafeed = () => {
 		},
 
 		// Get Bybit WebSocket URL (mirroring streaming.js getWebSocketUrl)
-		getBybitWebSocketUrl(_symbolInfo: any) {
+		getBybitWebSocketUrl(_symbolInfo: SymbolInfo) {
 			// Use Bybit's public WebSocket endpoint
 			return "wss://stream.bybit.com/v5/public/linear";
 		},
@@ -1812,7 +1822,7 @@ export const createChartDatafeed = () => {
 				lastPrice = Math.max(1000, lastPrice + change);
 
 				// Create trade data similar to streaming.js format
-				const tradeData = {
+				const tradeData: BybitFeedMessage = {
 					topic: channelString,
 					type: "snapshot",
 					data: [
@@ -1820,7 +1830,7 @@ export const createChartDatafeed = () => {
 							T: Date.now(),
 							s: subscriptionItem.symbolInfo?.symbol || "DEMO",
 							S: Math.random() > 0.5 ? "Buy" : "Sell",
-							p: Math.round(lastPrice * 100) / 100,
+							p: String(Math.round(lastPrice * 100) / 100),
 							i: Math.random().toString(36).substring(2, 11),
 							v: (Math.random() * 10 + 0.1).toFixed(3),
 						},
@@ -1833,7 +1843,10 @@ export const createChartDatafeed = () => {
 		},
 
 		// Process demo trade data (mirroring streaming.js message processing)
-		processDemoTradeData(channelString: string, feedMessage: any) {
+		processDemoTradeData(
+			channelString: string,
+			feedMessage: BybitFeedMessage
+		) {
 			const subscriptionItem =
 				this.channelToSubscription?.get(channelString);
 			if (!subscriptionItem) {
@@ -1848,7 +1861,7 @@ export const createChartDatafeed = () => {
 			if (!data || data.length === 0) return;
 
 			// Process each trade in the data array (matching streaming.js format exactly)
-			data.forEach((each: any) => {
+			data.forEach((each: BybitTradeData) => {
 				const { T: timestamp, S: side, p: price, v: size } = each;
 
 				const symbol = subscriptionItem.symbolInfo?.symbol || "DEMO";
@@ -1867,16 +1880,18 @@ export const createChartDatafeed = () => {
 				};
 
 				// Call all handlers for this channel (matching streaming.js exactly)
-				subscriptionItem.handlers.forEach((handler: any) => {
-					try {
-						handler.callback(tradeMessage);
-					} catch (error) {
-						console.error(
-							`❌ [DemoDatafeed] Error in handler ${handler.id}:`,
-							error
-						);
+				subscriptionItem.handlers.forEach(
+					(handler: StreamingHandler) => {
+						try {
+							handler.callback(tradeMessage);
+						} catch (error) {
+							console.error(
+								`❌ [DemoDatafeed] Error in handler ${handler.id}:`,
+								error
+							);
+						}
 					}
-				});
+				);
 			});
 		},
 	};
