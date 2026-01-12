@@ -1,4 +1,291 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+	SymbolInfo,
+	Bar,
+	Resolution,
+	SearchResult,
+	SearchSymbolsResult,
+	DataStatus,
+} from "@gocharting/chart-sdk";
+
+// ============================================================================
+// Bybit API Response Types
+// ============================================================================
+
+/**
+ * Bybit Kline (OHLCV) API response structure
+ */
+interface BybitKlineResponse {
+	retCode: number;
+	retMsg: string;
+	result: {
+		symbol: string;
+		category: string;
+		list: [string, string, string, string, string, string, string][]; // [timestamp, open, high, low, close, volume, turnover]
+	};
+	retExtInfo: Record<string, unknown>;
+	time: number;
+}
+
+/**
+ * Bybit WebSocket trade data structure
+ */
+interface BybitTradeData {
+	/** Timestamp in milliseconds */
+	T: number;
+	/** Symbol */
+	s: string;
+	/** Side: "Buy" or "Sell" */
+	S: string;
+	/** Price */
+	p: string;
+	/** Trade ID */
+	i: string;
+	/** Size/Volume */
+	v: string;
+}
+
+/**
+ * Bybit WebSocket message structure
+ */
+interface BybitWebSocketMessage {
+	topic: string;
+	type: string;
+	data: BybitTradeData[];
+	ts?: number;
+}
+
+// ============================================================================
+// GoCharting API Response Types
+// ============================================================================
+
+/**
+ * GoCharting instrument search API response
+ */
+interface GoChartingSearchResponse {
+	status: number;
+	payload: {
+		results: GoChartingSearchResult[];
+	};
+}
+
+/**
+ * Individual search result from GoCharting API
+ */
+interface GoChartingSearchResult {
+	item: GoChartingSearchItem;
+}
+
+/**
+ * Search item structure from GoCharting API
+ */
+interface GoChartingSearchItem {
+	symbol: string;
+	name: string;
+	exchange: string;
+	segment: string;
+	asset_type: string;
+	key: string;
+	is_group?: boolean;
+	members?: GoChartingSearchResult[];
+	max_tick_precision?: number;
+	max_volume_precision?: number;
+	contract_size?: number;
+	tick_size?: number;
+	quote_currency?: string;
+	future_type?: string;
+	tradeable?: boolean;
+	delay_seconds?: number;
+	symbol_logo_urls?: string[];
+	data_status?: DataStatus;
+	exchange_info?: {
+		name?: string;
+		code?: string;
+		country_cd?: string;
+		zone?: string;
+		has_unique_trade_id?: boolean;
+		holidays?: string[] | null;
+		hours?: Array<{ open: boolean }>;
+		contains_ambiguous_symbols?: boolean;
+		valid_intervals?: string[];
+	};
+}
+
+// ============================================================================
+// Datafeed Internal Types
+// ============================================================================
+
+/**
+ * Raw bar data structure (before UDF conversion)
+ */
+interface RawBar {
+	time: number;
+	open: number;
+	high: number;
+	low: number;
+	close: number;
+	volume: number;
+	date?: string;
+}
+
+/**
+ * Resolution conversion result
+ */
+interface ResolutionInfo {
+	scale: number;
+	units: string;
+	label: string;
+}
+
+/**
+ * Exchange info lookup structure
+ */
+interface ExchangeInfoLookup {
+	timezone: string;
+	session: string;
+	country_cd?: string;
+}
+
+/**
+ * Union type for all real-time data callbacks
+ */
+type RealtimeDataCallback = (data: Bar | TickData | TradeMessage) => void;
+
+/**
+ * Streaming subscription handler
+ */
+interface StreamingHandler {
+	id: string;
+	callback: RealtimeDataCallback;
+	resolution: string | Resolution;
+	lastDailyBar: Bar | null | undefined;
+	onResetCacheNeededCallback?: (() => void) | null;
+}
+
+/**
+ * Subscription item for channel management
+ */
+interface SubscriptionItem {
+	subscriberUID: string;
+	resolution: string | Resolution;
+	lastDailyBar: Bar | null | undefined;
+	handlers: StreamingHandler[];
+	symbolInfo: SymbolInfo;
+	channelString: string;
+}
+
+/**
+ * Trade message for real-time updates
+ */
+interface TradeMessage {
+	type: string;
+	productId: string;
+	symbol: string;
+	exchange: string;
+	segment: string;
+	timeStamp: Date;
+	tradeID: string;
+	price: number;
+	quantity: number;
+	amount: number;
+	side: string;
+}
+
+/**
+ * Demo socket interface (mock WebSocket)
+ */
+interface DemoSocket {
+	readyState: number;
+	url: string;
+	send: (message: string) => void;
+	close: () => void;
+	addEventListener: (
+		event: string,
+		callback: (event?: unknown) => void
+	) => void;
+}
+
+/**
+ * Subscription request structure
+ */
+interface SubscriptionRequest {
+	op: string;
+	args: string[];
+	symbol?: string;
+}
+
+/**
+ * Mock symbol data structure
+ */
+interface MockSymbolData {
+	symbol: string;
+	description: string;
+	industry: string;
+	logo_url: string;
+}
+
+/**
+ * Datafeed configuration ready callback config
+ */
+interface DatafeedConfig {
+	supported_resolutions: string[];
+	supports_marks: boolean;
+	supports_timescale_marks: boolean;
+	supports_time: boolean;
+}
+
+/**
+ * Extended PeriodParams with Date objects (as received from SDK)
+ */
+interface ExtendedPeriodParams {
+	from: Date;
+	to: Date;
+	firstDataRequest: boolean;
+	rows?: number;
+	countBack?: number;
+}
+
+/**
+ * UDF OK Response format
+ */
+interface UDFOkResponse {
+	s: "ok";
+	t: number[];
+	o: number[];
+	h: number[];
+	l: number[];
+	c: number[];
+	v: number[];
+}
+
+/**
+ * UDF No Data Response format
+ */
+interface UDFNoDataResponse {
+	s: "no_data";
+	nextTime: number | null;
+}
+
+/**
+ * Tick data for real-time streaming
+ */
+interface TickData {
+	time: number;
+	price: number;
+	volume: number;
+}
+
+/**
+ * Mock search result structure (extended with key for compare functionality)
+ */
+interface MockSearchResult {
+	symbol: string;
+	full_name: string;
+	description: string;
+	exchange: string;
+	ticker: string;
+	type: string;
+	key: string;
+}
 
 /**
  * Creates a demo datafeed for the GoCharting SDK
@@ -23,14 +310,17 @@
  */
 export const createChartDatafeed = () => {
 	const datafeed = {
-		symbolCache: new Map<string, any>(),
+		symbolCache: new Map<string, SymbolInfo>(),
 		searchSymbolController: null as AbortController | null,
-		streamingIntervals: {} as Record<string, any>,
-		channelToSubscription: null as Map<string, any> | null,
-		demoSocket: null as WebSocket | any | null,
+		streamingIntervals: {} as Record<
+			string,
+			ReturnType<typeof setInterval>
+		>,
+		channelToSubscription: null as Map<string, SubscriptionItem> | null,
+		demoSocket: null as WebSocket | DemoSocket | null,
 
 		// Cleanup method to prevent memory leaks
-		destroy() {
+		destroy(): void {
 			// Clear all streaming intervals
 			Object.values(this.streamingIntervals).forEach((interval) => {
 				clearInterval(interval);
@@ -44,7 +334,11 @@ export const createChartDatafeed = () => {
 			this.symbolCache.clear();
 		},
 
-		async getBars(symbolInfo: any, resolution: any, periodParams: any) {
+		async getBars(
+			symbolInfo: SymbolInfo,
+			resolution: string | Resolution,
+			periodParams: ExtendedPeriodParams
+		): Promise<UDFOkResponse | UDFNoDataResponse> {
 			const { from, to } = periodParams;
 			console.log("🔍 [DemoDatafeed] getBars called with:", {
 				symbolInfo,
@@ -55,7 +349,7 @@ export const createChartDatafeed = () => {
 				isBybit: symbolInfo.exchange === "BYBIT",
 			});
 			try {
-				let rawBars = [];
+				let rawBars: RawBar[] = [];
 				// Try to use real Bybit API for BYBIT symbols, fallback to demo data
 				if (symbolInfo.exchange === "BYBIT") {
 					console.log(
@@ -101,7 +395,9 @@ export const createChartDatafeed = () => {
 		},
 
 		// Convert raw bars to UDF format
-		convertToUDFFormat(rawBars: any[]) {
+		convertToUDFFormat(
+			rawBars: RawBar[]
+		): UDFOkResponse | UDFNoDataResponse {
 			if (!rawBars || rawBars.length === 0) {
 				return {
 					s: "no_data" as const,
@@ -114,9 +410,9 @@ export const createChartDatafeed = () => {
 			const l: number[] = []; // low
 			const c: number[] = []; // close
 			const v: number[] = []; // volume
-			rawBars.forEach((bar) => {
+			rawBars.forEach((bar: RawBar) => {
 				// Handle different time formats
-				let timestamp;
+				let timestamp: number;
 				if (bar.time) {
 					timestamp =
 						typeof bar.time === "number"
@@ -148,21 +444,24 @@ export const createChartDatafeed = () => {
 
 		async resolveSymbol(
 			symbolName: string,
-			onResolve: (symbolInfo: any) => void,
+			onResolve: (symbolInfo: SymbolInfo) => void,
 			onError: (error: string) => void
-		) {
+		): Promise<void> {
 			try {
 				// Check cache first
 				if (this.symbolCache.has(symbolName)) {
 					const cachedSymbolInfo = this.symbolCache.get(symbolName);
-					onResolve(cachedSymbolInfo);
-					return;
+					if (cachedSymbolInfo) {
+						onResolve(cachedSymbolInfo);
+						return;
+					}
 				}
 				// Try to use real GoCharting API for symbol resolution
 				try {
 					const symbolInfo = await this.resolveSymbolFromAPI(
 						symbolName
 					);
+					console.log({ symbolInfo });
 					this.symbolCache.set(symbolName, symbolInfo);
 					onResolve(symbolInfo);
 					return;
@@ -185,26 +484,24 @@ export const createChartDatafeed = () => {
 			}
 		},
 
-		async resolveSymbolFromAPI(symbolName: string) {
+		async resolveSymbolFromAPI(symbolName: string): Promise<SymbolInfo> {
 			const url = "https://gocharting.com/sdk/instruments/exactSearch";
-			const params = {
+			const params: Record<string, string> = {
 				q: symbolName,
 			};
 			const urlWithParams = new URL(url);
 			Object.keys(params).forEach((key) =>
-				urlWithParams.searchParams.append(
-					key,
-					params[key as keyof typeof params]
-				)
+				urlWithParams.searchParams.append(key, params[key])
 			);
 			const res = await fetch(urlWithParams);
 			if (!res.ok) {
 				throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 			}
-			const data = await res.json();
+			const data = (await res.json()) as GoChartingSearchResponse;
 			if (data.status === 200 && data.payload?.results?.length > 0) {
-				const result = data.payload.results[0];
-				return {
+				const result: GoChartingSearchItem =
+					data.payload.results[0].item;
+				const symbolInfo: SymbolInfo = {
 					symbol: result.symbol,
 					full_name: `${result.exchange}:${result.segment}:${result.symbol}`,
 					description: result.name,
@@ -214,8 +511,6 @@ export const createChartDatafeed = () => {
 					session_label: "24x7",
 					timezone: result.exchange_info?.zone || "UTC",
 					ticker: result.symbol,
-					minmov: 1,
-					pricescale: Math.pow(10, result.max_tick_precision || 2),
 					has_intraday: true,
 					intraday_multipliers: [
 						"1",
@@ -242,6 +537,7 @@ export const createChartDatafeed = () => {
 					data_status: result.data_status || "streaming",
 					contract_size: result.contract_size,
 					tick_size: result.tick_size,
+					max_tick_precision: result.max_tick_precision,
 					quote_currency: result.quote_currency,
 					future_type: result.future_type,
 					tradeable: result.tradeable,
@@ -257,7 +553,7 @@ export const createChartDatafeed = () => {
 						country_cd: result.exchange_info?.country_cd || "US",
 						zone: result.exchange_info?.zone || "UTC",
 						has_unique_trade_id:
-							result.exchange_info?.has_unique_trade_id || true,
+							result.exchange_info?.has_unique_trade_id ?? true,
 						holidays: result.exchange_info?.holidays || null,
 						hours: result.exchange_info?.hours || [
 							{ open: true },
@@ -269,7 +565,7 @@ export const createChartDatafeed = () => {
 							{ open: true },
 						],
 						contains_ambiguous_symbols:
-							result.exchange_info?.contains_ambiguous_symbols ||
+							result.exchange_info?.contains_ambiguous_symbols ??
 							false,
 						valid_intervals: result.exchange_info
 							?.valid_intervals || [
@@ -289,11 +585,12 @@ export const createChartDatafeed = () => {
 						],
 					},
 				};
+				return symbolInfo;
 			}
 			throw new Error(`No symbol found for: ${symbolName}`);
 		},
 
-		resolveSymbolLocally(symbolName: string) {
+		resolveSymbolLocally(symbolName: string): SymbolInfo {
 			// 🔍 Test case: Handle invalid symbol to trigger error
 			if (symbolName === "INVALID:SYMBOL") {
 				throw new Error(
@@ -317,8 +614,10 @@ export const createChartDatafeed = () => {
 			}
 			// Get proper timezone and session based on exchange
 			const exchangeInfo = this.getExchangeInfo(exchange);
+			// Note: Some fields (minmov, pricescale, etc.) are used by TradingView charting library
+			// but not in the SDK's SymbolInfo type, so we cast to SymbolInfo
 			return {
-				name: symbolName,
+				symbol: ticker,
 				full_name: symbolName,
 				description: this.getSymbolDescription(ticker, instrumentType),
 				type: this.getSymbolType(exchange),
@@ -327,11 +626,9 @@ export const createChartDatafeed = () => {
 				timezone: exchangeInfo.timezone,
 				ticker: ticker,
 				exchange: exchange,
-				minmov: 1,
-				pricescale: this.getPriceScale(exchange, ticker),
+				segment: instrumentType || "SPOT",
 				has_intraday: true,
 				has_daily: true,
-				has_weekly_and_monthly: true,
 				supported_resolutions: [
 					"1",
 					"5",
@@ -344,11 +641,12 @@ export const createChartDatafeed = () => {
 					"1M",
 				],
 				volume_precision: this.getVolumePrecision(exchange),
-				data_status: "streaming",
-				listed_exchange: exchange,
-				format: "price",
-				currency_code: this.getCurrencyCode(exchange, ticker),
-				instrument_type: instrumentType || "spot",
+				data_status: "streaming" as const,
+				tick_size: 1 / this.getPriceScale(exchange, ticker),
+				max_tick_precision: Math.log10(
+					this.getPriceScale(exchange, ticker)
+				),
+				quote_currency: this.getCurrencyCode(exchange, ticker),
 				exchange_info: {
 					name: exchange.toLowerCase(),
 					code: exchange,
@@ -392,11 +690,8 @@ export const createChartDatafeed = () => {
 			};
 		},
 
-		getExchangeInfo(exchange: string) {
-			const exchangeData: Record<
-				string,
-				{ timezone: string; session: string; country_cd?: string }
-			> = {
+		getExchangeInfo(exchange: string): ExchangeInfoLookup {
+			const exchangeData: Record<string, ExchangeInfoLookup> = {
 				NASDAQ: {
 					timezone: "America/New_York",
 					session: "0930-1600",
@@ -428,7 +723,10 @@ export const createChartDatafeed = () => {
 			);
 		},
 
-		getSymbolDescription(ticker: string, instrumentType: string | null) {
+		getSymbolDescription(
+			ticker: string,
+			instrumentType: string | null
+		): string {
 			const descriptions: Record<string, string> = {
 				AAPL: "Apple Inc.",
 				MSFT: "Microsoft Corporation",
@@ -444,7 +742,7 @@ export const createChartDatafeed = () => {
 			return baseDescription;
 		},
 
-		getSymbolType(exchange: string) {
+		getSymbolType(exchange: string): string {
 			const types: Record<string, string> = {
 				NASDAQ: "stock",
 				NYSE: "stock",
@@ -455,7 +753,7 @@ export const createChartDatafeed = () => {
 			return types[exchange] || "crypto";
 		},
 
-		getPriceScale(exchange: string, ticker: string) {
+		getPriceScale(exchange: string, ticker: string): number {
 			// Crypto typically has more decimal places
 			if (exchange === "BYBIT" || exchange === "BINANCE") {
 				if (ticker.includes("USDT") || ticker.includes("USD")) {
@@ -466,14 +764,14 @@ export const createChartDatafeed = () => {
 			return 100; // 2 decimal places for stocks
 		},
 
-		getVolumePrecision(exchange: string) {
+		getVolumePrecision(exchange: string): number {
 			if (exchange === "BYBIT" || exchange === "BINANCE") {
 				return 8; // Crypto volume precision
 			}
 			return 0; // Stock volume precision
 		},
 
-		getCurrencyCode(exchange: string, ticker: string) {
+		getCurrencyCode(exchange: string, ticker: string): string {
 			if (exchange === "BYBIT" || exchange === "BINANCE") {
 				if (ticker.includes("USDT")) return "USDT";
 				if (ticker.includes("USD")) return "USD";
@@ -483,14 +781,16 @@ export const createChartDatafeed = () => {
 		},
 
 		async getBybitBars(
-			symbolInfo: any,
-			resolution: any,
-			periodParams: any
-		) {
+			symbolInfo: SymbolInfo,
+			resolution: string | Resolution,
+			periodParams: ExtendedPeriodParams
+		): Promise<RawBar[]> {
 			const { from, to, firstDataRequest, rows } = periodParams;
 			// Use the same logic as real datafeed.js
 			// Handle both string and object resolution formats
-			let scale, units, interval;
+			let scale: number;
+			let units: string;
+			let interval: string;
 			if (typeof resolution === "string") {
 				// Convert string resolution to object format
 				const resolutionObj =
@@ -499,8 +799,8 @@ export const createChartDatafeed = () => {
 				units = resolutionObj.units;
 				interval = resolutionObj.label;
 			} else if (resolution && typeof resolution === "object") {
-				scale = resolution.units;
-				units = resolution.scale;
+				scale = resolution.units as unknown as number;
+				units = resolution.scale as unknown as string;
 				// Derive label from scale and units
 				interval = this.deriveIntervalLabel(scale, units);
 			} else {
@@ -517,9 +817,9 @@ export const createChartDatafeed = () => {
 			});
 
 			// Extract the correct symbol for Bybit API
-			const bybitSymbol =
-				symbolInfo.symbol || symbolInfo.ticker || symbolInfo.name;
-			let url;
+			const bybitSymbol: string =
+				symbolInfo.symbol || symbolInfo.ticker || "";
+			let url: string;
 			if (firstDataRequest) {
 				// Use current time to get recent data up to today
 				const currentTime = Date.now();
@@ -534,13 +834,13 @@ export const createChartDatafeed = () => {
 				}`;
 			}
 			const response = await fetch(url);
-			const data = await response.json();
+			const data = (await response.json()) as BybitKlineResponse;
 			if (data.result?.list) {
-				const bars = [];
+				const bars: RawBar[] = [];
 				const list = data.result.list;
 				for (let k = 0; k < list.length; k++) {
 					const [timestamp, open, high, low, close, volume] = list[k];
-					const bar = {
+					const bar: RawBar = {
 						time: Math.floor(Number(timestamp) / 1000), // Convert to seconds
 						open: Number(open),
 						high: Number(high),
@@ -557,11 +857,8 @@ export const createChartDatafeed = () => {
 			throw new Error("No data from Bybit API");
 		},
 
-		convertIntervalToResolution(intervalString: string) {
-			const intervalMap: Record<
-				string,
-				{ scale: number; units: string; label: string }
-			> = {
+		convertIntervalToResolution(intervalString: string): ResolutionInfo {
+			const intervalMap: Record<string, ResolutionInfo> = {
 				"1m": { scale: 1, units: "minutes", label: "1" },
 				"5m": { scale: 5, units: "minutes", label: "5" },
 				"15m": { scale: 15, units: "minutes", label: "15" },
@@ -572,8 +869,8 @@ export const createChartDatafeed = () => {
 				"1W": { scale: 1, units: "weeks", label: "W" },
 				"1M": { scale: 1, units: "months", label: "M" },
 			};
-			const resolution = intervalMap[intervalString];
-			if (!resolution) {
+			const resolutionResult = intervalMap[intervalString];
+			if (!resolutionResult) {
 				console.warn(
 					`Unknown interval: ${intervalString}, defaulting to 1D`
 				);
@@ -583,10 +880,10 @@ export const createChartDatafeed = () => {
 					label: "D",
 				};
 			}
-			return resolution;
+			return resolutionResult;
 		},
 
-		deriveIntervalLabel(scale: number, units: string) {
+		deriveIntervalLabel(scale: number, units: string): string {
 			switch (units) {
 				case "minutes":
 					return scale.toString();
@@ -607,10 +904,10 @@ export const createChartDatafeed = () => {
 		generateDemoData(
 			from: Date,
 			to: Date,
-			resolution: any,
-			_symbolInfo: any
-		) {
-			const bars = [];
+			resolution: string | Resolution,
+			_symbolInfo: SymbolInfo
+		): RawBar[] {
+			const bars: RawBar[] = [];
 			const startTime = from.getTime() / 1000;
 			const endTime = to.getTime() / 1000;
 			let interval = 86400; // 1 day in seconds
@@ -649,21 +946,11 @@ export const createChartDatafeed = () => {
 			return bars;
 		},
 
-		// Create mock symbol info for AAPL and TSLA based on the provided format
-		createMockSymbolInfo(symbolName: string) {
-			const symbolData: Record<
-				string,
-				{
-					symbol: string;
-					name: string;
-					description: string;
-					industry: string;
-					logo_url: string;
-				}
-			> = {
+		// Create mock symbol info for AAPL and TSLA using GoCharting SDK SymbolInfo format
+		createMockSymbolInfo(symbolName: string): SymbolInfo {
+			const symbolData: Record<string, MockSymbolData> = {
 				"NASDAQ:AAPL": {
 					symbol: "AAPL",
-					name: "APPLE INC",
 					description: "Apple Inc. - Common Stock",
 					industry: "technology",
 					logo_url:
@@ -671,7 +958,6 @@ export const createChartDatafeed = () => {
 				},
 				"NASDAQ:TSLA": {
 					symbol: "TSLA",
-					name: "TESLA INC",
 					description: "Tesla Inc. - Common Stock",
 					industry: "automotive",
 					logo_url:
@@ -686,35 +972,62 @@ export const createChartDatafeed = () => {
 				);
 			}
 
-			// Return mock symbol info in the same format as the provided example
+			// Return mock symbol info using GoCharting SDK SymbolInfo interface
+			// Note: Fields like minmov, pricescale, name, listed_exchange are NOT in SDK interface
+			// Use max_tick_precision + tick_size instead of minmov/pricescale
+			// Use description instead of name
+			// Use quote_currency instead of currency_code
 			return {
-				exchange: "NASDAQ",
-				segment: "SPOT",
+				// Required fields
 				symbol: data.symbol,
-				name: data.name,
 				full_name: symbolName,
 				description: data.description,
+				exchange: "NASDAQ",
 				type: "stock",
+				session: "0930-1600",
+				timezone: "America/New_York",
+				ticker: data.symbol,
+				has_intraday: true,
+				supported_resolutions: [
+					"1",
+					"5",
+					"15",
+					"30",
+					"60",
+					"240",
+					"1D",
+					"1W",
+					"1M",
+				],
+
+				// Optional fields used by SDK
+				segment: "SPOT",
 				asset_type: "EQUITY",
-				source_id: data.symbol,
+				session_label: "0930-1600",
 				tradeable: true,
 				is_index: false,
 				is_formula: false,
 				delay_seconds: 0,
-				data_status: "streaming",
+				data_status: "streaming" as const,
 				industry: data.industry,
 				symbol_logo_urls: [data.logo_url],
+
+				// Price & Volume Precision (SDK uses these, NOT minmov/pricescale)
 				contract_size: 1,
-				tick_size: 1,
-				display_tick_size: 1,
+				tick_size: 0.01, // $0.01 minimum price movement
+				display_tick_size: 0.01,
 				volume_size_increment: 1,
-				max_tick_precision: 2,
+				max_tick_precision: 2, // 2 decimal places
 				max_volume_precision: 0,
-				quote_currency: "USD",
-				data_source_location: "us-east-1",
-				supports: {
-					footprint: true,
-				},
+				quote_currency: "USD", // NOT currency_code
+
+				// Additional optional fields
+				has_daily: true,
+				volume_precision: 0,
+				source_id: data.symbol,
+				intraday_multipliers: ["1", "5", "15", "30", "60", "240"],
+
+				// Exchange information
 				exchange_info: {
 					name: "nasdaq",
 					code: "NASDAQ",
@@ -746,36 +1059,10 @@ export const createChartDatafeed = () => {
 						"1M",
 					],
 				},
-				session: "0930-1600",
-				session_label: "0930-1600",
-				timezone: "America/New_York",
-				ticker: data.symbol,
-				minmov: 1,
-				pricescale: 100,
-				has_intraday: true,
-				has_daily: true,
-				has_weekly_and_monthly: true,
-				supported_resolutions: [
-					"1",
-					"5",
-					"15",
-					"30",
-					"60",
-					"240",
-					"1D",
-					"1W",
-					"1M",
-				],
-				intraday_multipliers: ["1", "5", "15", "30", "60", "240", "1D"],
-				volume_precision: 0,
-				listed_exchange: "NASDAQ",
-				format: "price",
-				currency_code: "USD",
-				instrument_type: "spot",
 			};
 		},
 
-		onReady(callback: (config: any) => void) {
+		onReady(callback: (config: DatafeedConfig) => void): void {
 			setTimeout(
 				() =>
 					callback({
@@ -798,29 +1085,60 @@ export const createChartDatafeed = () => {
 			);
 		},
 
-		searchSymbols(userInput: string, callback: (symbols: any[]) => void) {
+		searchSymbols(
+			userInput: string,
+			exchangeOrCallback:
+				| string
+				| ((result: SearchSymbolsResult) => void),
+			symbolType?: string,
+			onResultReadyCallback?: (result: SearchSymbolsResult) => void
+		): void {
+			// Handle different calling patterns - sometimes callback is 2nd param, sometimes 4th
+			const callback:
+				| ((result: SearchSymbolsResult) => void)
+				| undefined =
+				typeof exchangeOrCallback === "function"
+					? exchangeOrCallback
+					: onResultReadyCallback;
+
 			console.log("🔍 [DemoDatafeed] searchSymbols called:", {
 				userInput,
+				exchange:
+					typeof exchangeOrCallback === "function"
+						? "callback"
+						: exchangeOrCallback,
+				symbolType,
 				hasCallback: typeof callback === "function",
 			});
 
-			// Try to use real GoCharting API first
-			this.searchSymbolsFromAPI(userInput, callback).catch((error) => {
-				console.log(
-					"🔍 [DemoDatafeed] GoCharting search API failed, using mock data:",
-					error
+			if (!callback) {
+				console.error(
+					"🔍 [DemoDatafeed] No callback provided to searchSymbols"
 				);
-				// Fallback to mock data
-				this.searchSymbolsMock(userInput, callback);
-			});
+				return;
+			}
+
+			// Use async IIFE to handle the fetch, but don't make the function itself async
+			(async () => {
+				try {
+					await this.searchSymbolsFromAPI(userInput, callback);
+				} catch (error) {
+					console.log(
+						"🔍 [DemoDatafeed] GoCharting search API failed, using mock data:",
+						error
+					);
+					// Fallback to mock data
+					this.searchSymbolsMock(userInput, callback);
+				}
+			})();
 		},
 
 		searchSymbolsMock(
 			userInput: string,
-			callback: (symbols: any[]) => void
-		) {
+			callback: (result: SearchSymbolsResult) => void
+		): void {
 			// Mock API response with symbols from your dropdown
-			const symbols = [
+			const symbols: MockSearchResult[] = [
 				{
 					symbol: "BTCUSDT",
 					full_name: "BYBIT:FUTURE:BTCUSDT",
@@ -897,8 +1215,11 @@ export const createChartDatafeed = () => {
 
 			// Return filtered results in correct SDK format
 			if (typeof callback === "function") {
-				// The SDK expects an array of SearchResult objects
-				callback(filteredSymbols);
+				// The SDK expects SearchSymbolsResult with items array
+				callback({
+					searchInProgress: false,
+					items: filteredSymbols as unknown as SearchResult[],
+				});
 			} else {
 				console.error(
 					"🔍 [DemoDatafeed] No valid callback provided to searchSymbols"
@@ -908,10 +1229,10 @@ export const createChartDatafeed = () => {
 
 		async searchSymbolsFromAPI(
 			userInput: string,
-			callback: ((result: any) => void) | undefined
-		) {
+			callback: ((result: SearchSymbolsResult) => void) | undefined
+		): Promise<void> {
 			const url = "https://gocharting.com/sdk/instruments/search";
-			const params = {
+			const params: Record<string, string> = {
 				q: userInput,
 			};
 
@@ -923,10 +1244,7 @@ export const createChartDatafeed = () => {
 
 			const urlWithParams = new URL(url);
 			Object.keys(params).forEach((key) =>
-				urlWithParams.searchParams.append(
-					key,
-					params[key as keyof typeof params]
-				)
+				urlWithParams.searchParams.append(key, params[key])
 			);
 
 			const res = await fetch(urlWithParams, {
@@ -937,35 +1255,42 @@ export const createChartDatafeed = () => {
 				throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 			}
 
-			const data = await res.json();
+			const data = (await res.json()) as GoChartingSearchResponse;
 
 			if (data.status === 200 && data.payload?.results) {
-				const transformedResults: any[] = [];
+				const transformedResults: SearchResult[] = [];
 
-				data.payload.results.forEach((result: any) => {
-					const item = result.item;
+				data.payload.results.forEach(
+					(result: GoChartingSearchResult) => {
+						const item: GoChartingSearchItem = result.item;
 
-					if (item.is_group && item.members) {
-						item.members.forEach((member: any) => {
-							const memberItem = member.item;
+						if (item.is_group && item.members) {
+							item.members.forEach(
+								(member: GoChartingSearchResult) => {
+									const memberItem: GoChartingSearchItem =
+										member.item;
+									transformedResults.push({
+										symbol: memberItem.symbol,
+										full_name: memberItem.key,
+										description: memberItem.name,
+										exchange: memberItem.exchange,
+										ticker: memberItem.symbol,
+										type: memberItem.asset_type.toLowerCase() as SearchResult["type"],
+									});
+								}
+							);
+						} else {
 							transformedResults.push({
-								symbol: memberItem.symbol,
-								full_name: memberItem.key,
-								description: memberItem.name,
-								exchange: memberItem.exchange,
-								type: memberItem.asset_type.toLowerCase(),
+								symbol: item.symbol,
+								full_name: item.key,
+								description: item.name,
+								exchange: item.exchange,
+								ticker: item.symbol,
+								type: item.asset_type.toLowerCase() as SearchResult["type"],
 							});
-						});
-					} else {
-						transformedResults.push({
-							symbol: item.symbol,
-							full_name: item.key,
-							description: item.name,
-							exchange: item.exchange,
-							type: item.asset_type.toLowerCase(),
-						});
+						}
 					}
-				});
+				);
 
 				if (callback) {
 					// The SDK expects an object with searchInProgress and items properties
@@ -986,12 +1311,12 @@ export const createChartDatafeed = () => {
 		},
 
 		subscribeBars(
-			symbolInfo: any,
-			resolution: any,
-			onRealtimeCallback: (bar: any) => void,
+			symbolInfo: SymbolInfo,
+			resolution: string | Resolution,
+			onRealtimeCallback: RealtimeDataCallback,
 			subscriberUID: string,
 			_onResetCacheNeededCallback?: () => void
-		) {
+		): void {
 			console.log("📊 [DemoDatafeed] subscribeBars:", subscriberUID);
 			// For demo purposes, we'll simulate real-time updates
 			// In production, this would connect to real WebSocket streams
@@ -1003,7 +1328,7 @@ export const createChartDatafeed = () => {
 			);
 		},
 
-		unsubscribeBars(subscriberUID: string) {
+		unsubscribeBars(subscriberUID: string): void {
 			console.log("📊 [DemoDatafeed] unsubscribeBars:", subscriberUID);
 			// Stop the demo streaming for this subscriber
 			if (
@@ -1017,12 +1342,12 @@ export const createChartDatafeed = () => {
 
 		// Optional datafeed interface methods for real-time data
 		subscribeTicks(
-			symbolInfo: any,
-			resolution: any,
-			onRealtimeCallback: (bar: any) => void,
+			symbolInfo: SymbolInfo,
+			resolution: string | Resolution,
+			onRealtimeCallback: RealtimeDataCallback,
 			subscriberUID: string,
 			onResetCacheNeededCallback?: () => void
-		) {
+		): void {
 			// Use the same pattern as the real datafeed.js
 			this.subscribeOnStream(
 				symbolInfo,
@@ -1034,18 +1359,18 @@ export const createChartDatafeed = () => {
 			);
 		},
 
-		unsubscribeTicks(subscriberUID: string) {
+		unsubscribeTicks(subscriberUID: string): void {
 			// Use the same pattern as the real datafeed.js
 			this.unsubscribeFromStream(subscriberUID);
 		},
 
 		// Start demo streaming for non-real-time symbols
 		startDemoStreaming(
-			_symbolInfo: any,
-			_resolution: any,
-			onRealtimeCallback: (bar: any) => void,
+			_symbolInfo: SymbolInfo,
+			_resolution: string | Resolution,
+			onRealtimeCallback: RealtimeDataCallback,
 			subscriberUID: string
-		) {
+		): void {
 			// Initialize streaming intervals map if not exists
 			if (!this.streamingIntervals) {
 				this.streamingIntervals = {};
@@ -1065,7 +1390,7 @@ export const createChartDatafeed = () => {
 				lastPrice = Math.max(1000, lastPrice + change); // Ensure price doesn't go below $1000
 
 				const now = Date.now();
-				const tick = {
+				const tick: TickData = {
 					time: Math.floor(now / 1000), // Unix timestamp in seconds
 					price: Math.round(lastPrice * 100) / 100, // Round to 2 decimal places
 					volume: Math.floor(Math.random() * 1000) + 100, // Random volume
@@ -1077,13 +1402,13 @@ export const createChartDatafeed = () => {
 
 		// Enhanced streaming implementation mirroring streaming.js capabilities
 		subscribeOnStream(
-			symbolInfo: any,
-			resolution: any,
-			onRealtimeCallback: (bar: any) => void,
+			symbolInfo: SymbolInfo,
+			resolution: string | Resolution,
+			onRealtimeCallback: RealtimeDataCallback,
 			subscriberUID: string,
 			onResetCacheNeededCallback?: (() => void) | null,
-			lastDailyBar?: any
-		) {
+			lastDailyBar?: Bar | null
+		): void {
 			// Initialize streaming infrastructure like streaming.js
 			if (!this.channelToSubscription) {
 				this.channelToSubscription = new Map();
@@ -1097,13 +1422,13 @@ export const createChartDatafeed = () => {
 			let channelString: string;
 			if (symbolInfo.exchange === "BYBIT") {
 				// Use real Bybit channel format
-				const symbol =
-					symbolInfo.symbol || symbolInfo.ticker || symbolInfo.name;
+				const symbol: string =
+					symbolInfo.symbol || symbolInfo.ticker || "";
 				channelString = `publicTrade.${symbol}`;
 			} else {
 				// Use demo format for other exchanges
 				channelString = `demoTrade.${
-					symbolInfo.symbol || symbolInfo.ticker || symbolInfo.name
+					symbolInfo.symbol || symbolInfo.ticker || ""
 				}`;
 			}
 
@@ -1137,7 +1462,7 @@ export const createChartDatafeed = () => {
 			this.channelToSubscription.set(channelString, subscriptionItem);
 
 			// Send subscription request (real Bybit format for BYBIT, demo for others)
-			let subRequest: any;
+			let subRequest: SubscriptionRequest;
 			if (symbolInfo.exchange === "BYBIT") {
 				// Real Bybit subscription format
 				subRequest = {
@@ -1152,7 +1477,8 @@ export const createChartDatafeed = () => {
 					symbol:
 						symbolInfo.symbol ||
 						symbolInfo.ticker ||
-						symbolInfo.name,
+						symbolInfo.description ||
+						"",
 				};
 			}
 
@@ -1249,8 +1575,11 @@ export const createChartDatafeed = () => {
 				});
 			} else {
 				// Create mock socket for non-Bybit symbols
-				this.demoSocket = {
-					readyState: 1, // WebSocket.OPEN
+				let mockReadyState = 1; // WebSocket.OPEN
+				const mockSocket: DemoSocket = {
+					get readyState() {
+						return mockReadyState;
+					},
 					url: `wss://demo.gocharting.com/ws/${
 						symbolInfo.exchange || "DEMO"
 					}`,
@@ -1262,14 +1591,18 @@ export const createChartDatafeed = () => {
 					},
 					close: () => {
 						console.log("🔌 [DemoSocket] Mock connection closed");
-						this.demoSocket.readyState = 3; // WebSocket.CLOSED
+						mockReadyState = 3; // WebSocket.CLOSED
 					},
-					addEventListener: (event: string, _callback: any) => {
+					addEventListener: (
+						event: string,
+						_callback: (event?: unknown) => void
+					) => {
 						console.log(
 							`🔌 [DemoSocket] Mock event listener added for: ${event}`
 						);
 					},
 				};
+				this.demoSocket = mockSocket;
 			}
 
 			return this.demoSocket;
@@ -1282,9 +1615,11 @@ export const createChartDatafeed = () => {
 		},
 
 		// Handle Bybit WebSocket messages (mirroring streaming.js message handling)
-		handleBybitMessage(event: any) {
+		handleBybitMessage(event: MessageEvent) {
 			try {
-				const feedMessage = JSON.parse(event.data);
+				const feedMessage = JSON.parse(
+					event.data
+				) as BybitWebSocketMessage;
 				const { topic } = feedMessage;
 
 				if (!topic || !topic.startsWith("publicTrade")) {
@@ -1313,7 +1648,10 @@ export const createChartDatafeed = () => {
 		},
 
 		// Process real Bybit trade data (mirroring streaming.js processing)
-		processRealBybitData(topic: string, feedMessage: any) {
+		processRealBybitData(
+			topic: string,
+			feedMessage: BybitWebSocketMessage
+		) {
 			const subscriptionItem = this.channelToSubscription?.get(topic);
 			if (!subscriptionItem) {
 				return;
@@ -1323,10 +1661,10 @@ export const createChartDatafeed = () => {
 			if (!data || data.length === 0) return;
 
 			// Process each trade in the data array (matching streaming.js format exactly)
-			data.forEach((each: any) => {
+			data.forEach((each: BybitTradeData) => {
 				const { T: timestamp, s, S: side, p: price, i, v: size } = each;
 
-				const tradeMessage = {
+				const tradeMessage: TradeMessage = {
 					type: "trade",
 					productId: `BYBIT:FUTURE:${s}`,
 					symbol: s,
@@ -1341,21 +1679,26 @@ export const createChartDatafeed = () => {
 				};
 
 				// Call all handlers for this channel (matching streaming.js exactly)
-				subscriptionItem.handlers.forEach((handler: any) => {
-					try {
-						handler.callback(tradeMessage);
-					} catch (error) {
-						console.error(
-							`❌ [DemoDatafeed] Error in handler ${handler.id}:`,
-							error
-						);
+				subscriptionItem.handlers.forEach(
+					(handler: StreamingHandler) => {
+						try {
+							handler.callback(tradeMessage);
+						} catch (error) {
+							console.error(
+								`❌ [DemoDatafeed] Error in handler ${handler.id}:`,
+								error
+							);
+						}
 					}
-				});
+				);
 			});
 		},
 
 		// Send subscription (real Bybit or demo, mirroring streaming.js subscription logic)
-		sendDemoSubscription(subRequest: any, subscriptionItem: any) {
+		sendDemoSubscription(
+			subRequest: SubscriptionRequest,
+			subscriptionItem: SubscriptionItem
+		) {
 			const isRealBybit =
 				subscriptionItem.symbolInfo.exchange === "BYBIT";
 
@@ -1377,24 +1720,27 @@ export const createChartDatafeed = () => {
 			) {
 				// Socket is connecting, wait for it to open
 				if (isRealBybit && this.demoSocket instanceof WebSocket) {
-					this.demoSocket.addEventListener(
+					const socket = this.demoSocket;
+					socket.addEventListener(
 						"open",
 						() => {
 							console.log(
 								"🔌 [DemoDatafeed] Bybit socket opened, sending subscription"
 							);
-							this.demoSocket.send(JSON.stringify(subRequest));
+							socket.send(JSON.stringify(subRequest));
 						},
 						{ once: true }
 					);
 				} else {
 					// For demo sockets, simulate connection
+					const socket = this.demoSocket;
 					setTimeout(() => {
 						console.log(
 							"🔌 [DemoDatafeed] Demo socket connected, sending subscription"
 						);
-						this.demoSocket.readyState = WebSocket.OPEN;
-						this.demoSocket.send(JSON.stringify(subRequest));
+						if (socket) {
+							socket.send(JSON.stringify(subRequest));
+						}
 						this.startChannelStreaming(subscriptionItem);
 					}, 100);
 				}
@@ -1409,24 +1755,25 @@ export const createChartDatafeed = () => {
 					this.initializeDemoSocket(subscriptionItem.symbolInfo);
 					// Wait for the new socket to connect
 					if (this.demoSocket instanceof WebSocket) {
-						this.demoSocket.addEventListener(
+						const socket = this.demoSocket;
+						socket.addEventListener(
 							"open",
 							() => {
 								console.log(
 									"🔌 [DemoDatafeed] Bybit socket reconnected, sending subscription"
 								);
-								this.demoSocket.send(
-									JSON.stringify(subRequest)
-								);
+								socket.send(JSON.stringify(subRequest));
 							},
 							{ once: true }
 						);
 					}
 				} else {
 					// For demo sockets, simulate connection
+					const socket = this.demoSocket;
 					setTimeout(() => {
-						this.demoSocket.readyState = WebSocket.OPEN;
-						this.demoSocket.send(JSON.stringify(subRequest));
+						if (socket) {
+							socket.send(JSON.stringify(subRequest));
+						}
 						this.startChannelStreaming(subscriptionItem);
 					}, 100);
 				}
@@ -1434,14 +1781,17 @@ export const createChartDatafeed = () => {
 		},
 
 		// Send demo unsubscription (mirroring streaming.js unsubscription logic)
-		sendDemoUnsubscription(unsubRequest: any, _channelString: string) {
+		sendDemoUnsubscription(
+			unsubRequest: SubscriptionRequest,
+			_channelString: string
+		) {
 			if (this.demoSocket && this.demoSocket.readyState === 1) {
 				this.demoSocket.send(JSON.stringify(unsubRequest));
 			}
 		},
 
 		// Start streaming for a specific channel (mirroring streaming.js message handling)
-		startChannelStreaming(subscriptionItem: any) {
+		startChannelStreaming(subscriptionItem: SubscriptionItem) {
 			const { channelString } = subscriptionItem;
 
 			if (!this.streamingIntervals) {

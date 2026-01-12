@@ -1,7 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Box } from "./Box";
-import { Text } from "./Text";
-import { useResponsive } from "../hooks/useResponsive";
 import { createChartDatafeed } from "../utils/chart-datafeed";
 import * as GoChartingSDK from "@gocharting/chart-sdk";
 import type {
@@ -11,9 +8,13 @@ import type {
 	Trade,
 	Position,
 } from "@gocharting/chart-sdk";
+import "./ChartSDKAdvanced.css";
 
 // Extract the appCallback type from ChartConfig
 type AppCallback = NonNullable<ChartConfig["appCallback"]>;
+
+// Type for the datafeed returned by createChartDatafeed
+type ChartDatafeed = ReturnType<typeof createChartDatafeed>;
 
 interface OrderHistoryItem {
 	timestamp: string;
@@ -29,9 +30,8 @@ interface OrderHistoryItem {
 
 export const ChartSDKAdvanced = () => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
-	const widgetRef = useRef<ChartInstance | null>(null);
-	const { isSmallDevice, isMediumDevice } = useResponsive();
-	const isMobile = isSmallDevice || isMediumDevice;
+	const chartWrapperRef = useRef<ChartInstance | null>(null);
+	const datafeedRef = useRef<ChartDatafeed | null>(null);
 
 	// Trading state
 	const [quantity, setQuantity] = useState(100);
@@ -79,12 +79,29 @@ export const ChartSDKAdvanced = () => {
 		return () => {
 			clearTimeout(timer);
 			// Cleanup chart on unmount
-			if (widgetRef.current) {
+			if (chartWrapperRef.current) {
 				try {
-					widgetRef.current.destroy();
+					if (!chartWrapperRef.current.isDestroyed()) {
+						chartWrapperRef.current.destroy();
+					}
 				} catch (e) {
-					console.error("Error destroying chart:", e);
+					if (
+						!(e instanceof Error) ||
+						!e.message.includes("removeChild")
+					) {
+						console.error("Error destroying chart:", e);
+					}
 				}
+				chartWrapperRef.current = null;
+			}
+			// Cleanup datafeed
+			if (datafeedRef.current) {
+				try {
+					datafeedRef.current.destroy();
+				} catch (e) {
+					console.error("Error destroying datafeed:", e);
+				}
+				datafeedRef.current = null;
 			}
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,7 +109,7 @@ export const ChartSDKAdvanced = () => {
 
 	// Helper methods
 	const updateChartBrokerData = () => {
-		if (!widgetRef.current) {
+		if (!chartWrapperRef.current) {
 			console.warn("Chart instance not available");
 			return;
 		}
@@ -105,7 +122,7 @@ export const ChartSDKAdvanced = () => {
 		};
 
 		try {
-			widgetRef.current.setBrokerAccounts(demoBrokerData as any);
+			chartWrapperRef.current.setBrokerAccounts(demoBrokerData as any);
 			console.log("✅ Broker data updated successfully");
 		} catch (error) {
 			console.error("❌ Failed to update chart broker data:", error);
@@ -156,8 +173,15 @@ export const ChartSDKAdvanced = () => {
 			return;
 		}
 
+		// Prevent double initialization
+		if (chartWrapperRef.current) {
+			console.log("Chart already exists, skipping creation");
+			return;
+		}
+
 		try {
 			const datafeed = createChartDatafeed();
+			datafeedRef.current = datafeed;
 
 			// Add an ID to the container for the SDK
 			if (chartContainerRef.current) {
@@ -175,7 +199,7 @@ export const ChartSDKAdvanced = () => {
 				enableTrading: true,
 				appCallback: handleAppCallback,
 				onReady: (chartInstance) => {
-					widgetRef.current = chartInstance;
+					// Chart is now ready - the wrapper ref is already set
 					setStatus("Chart loaded with advanced trading features!");
 
 					console.log("=== CHART READY - TRADING DIAGNOSTICS ===");
@@ -184,10 +208,6 @@ export const ChartSDKAdvanced = () => {
 					console.log(
 						"setBrokerAccounts available:",
 						typeof chartInstance.setBrokerAccounts
-					);
-					console.log(
-						"Chart instance methods:",
-						Object.getOwnPropertyNames(chartInstance)
 					);
 					console.log("==========================================");
 
@@ -203,12 +223,12 @@ export const ChartSDKAdvanced = () => {
 				},
 			} satisfies ChartConfig;
 
-			const chart = GoChartingSDK.createChart(
+			// Store the wrapper object which has destroy(), setSymbol(), etc.
+			const chartWrapper = GoChartingSDK.createChart(
 				"#gocharting-chart-container-advanced",
 				chartConfig
 			);
-
-			widgetRef.current = chart;
+			chartWrapperRef.current = chartWrapper;
 		} catch (error) {
 			console.error("Error initializing chart:", error);
 			setStatus("Failed to initialize chart");
@@ -286,7 +306,7 @@ export const ChartSDKAdvanced = () => {
 			JSON.stringify(orderData, null, 2)
 		);
 
-		if (!widgetRef.current) {
+		if (!chartWrapperRef.current) {
 			console.warn("Chart instance not available");
 			return;
 		}
@@ -419,7 +439,7 @@ export const ChartSDKAdvanced = () => {
 
 	const createPositionAndTrade = (
 		newOrder: Order,
-		order: any,
+		_order: any, // Kept for API consistency with handleMarketOrderWithTPSL
 		security: any,
 		ltp: number
 	) => {
@@ -770,408 +790,157 @@ export const ChartSDKAdvanced = () => {
 	};
 
 	return (
-		<Box
-			style={{
-				display: "flex",
-				flexDirection: "column",
-				height: "100vh",
-				width: "100%",
-				backgroundColor: "#1a1a1a",
-			}}
-		>
-			{/* Header */}
-			<Box
-				style={{
-					padding: "1rem",
-					backgroundColor: "#2a2a2a",
-					borderBottom: "1px solid #3a3a3a",
-				}}
-			>
-				<Text
-					style={{
-						fontSize: "1.5rem",
-						fontWeight: "bold",
-						color: "#ffffff",
-						marginBottom: "0.5rem",
-					}}
-				>
-					GoCharting SDK - Advanced Trading Example
-				</Text>
-				<Text style={{ color: "#888", fontSize: "0.9rem" }}>
-					{status}
-				</Text>
-			</Box>
-
-			{/* Main Content */}
-			<Box
-				style={{
-					display: "flex",
-					flexDirection: isMobile ? "column" : "row",
-					flex: 1,
-					overflow: "hidden",
-				}}
-			>
-				{/* Chart Container */}
-				<Box
-					style={{
-						flex: 1,
-						position: "relative",
-						minHeight: isMobile ? "400px" : "auto",
-					}}
-				>
-					<div
-						ref={chartContainerRef}
-						style={{
-							width: "100%",
-							height: "100%",
-							position: "absolute",
-							top: 0,
-							left: 0,
-						}}
-					/>
-				</Box>
+		<div className='advanced-trading-container'>
+			<div className='container'>
+				{/* Header */}
+				<div className='header'>
+					<h1>📈 GoCharting SDK - Advanced Trading</h1>
+					<p>
+						Professional Financial Charts with Integrated Trading
+						Interface ⚡
+					</p>
+				</div>
 
 				{/* Trading Panel */}
-				<Box
-					style={{
-						width: isMobile ? "100%" : "350px",
-						backgroundColor: "#2a2a2a",
-						borderLeft: isMobile ? "none" : "1px solid #3a3a3a",
-						borderTop: isMobile ? "1px solid #3a3a3a" : "none",
-						padding: "1rem",
-						overflowY: "auto",
-						display: "flex",
-						flexDirection: "column",
-						gap: "1rem",
-					}}
-				>
-					<Text
-						style={{
-							fontSize: "1.2rem",
-							fontWeight: "bold",
-							color: "#ffffff",
-							marginBottom: "0.5rem",
-						}}
-					>
-						Trading Panel
-					</Text>
-
-					{/* Order Type Selection */}
-					<Box
-						style={{
-							display: "flex",
-							flexDirection: "column",
-							gap: "0.5rem",
-						}}
-					>
-						<Text style={{ color: "#aaa", fontSize: "0.9rem" }}>
-							Order Type
-						</Text>
-						<Box style={{ display: "flex", gap: "0.5rem" }}>
-							<button
-								onClick={() => setOrderType("market")}
-								style={{
-									flex: 1,
-									padding: "0.5rem",
-									backgroundColor:
-										orderType === "market"
-											? "#4CAF50"
-											: "#3a3a3a",
-									color: "#fff",
-									border: "none",
-									borderRadius: "4px",
-									cursor: "pointer",
-									fontSize: "0.9rem",
-								}}
-							>
-								Market
-							</button>
-							<button
-								onClick={() => setOrderType("limit")}
-								style={{
-									flex: 1,
-									padding: "0.5rem",
-									backgroundColor:
-										orderType === "limit"
-											? "#4CAF50"
-											: "#3a3a3a",
-									color: "#fff",
-									border: "none",
-									borderRadius: "4px",
-									cursor: "pointer",
-									fontSize: "0.9rem",
-								}}
-							>
-								Limit
-							</button>
-						</Box>
-					</Box>
-
-					{/* Quantity Input */}
-					<Box
-						style={{
-							display: "flex",
-							flexDirection: "column",
-							gap: "0.5rem",
-						}}
-					>
-						<Text style={{ color: "#aaa", fontSize: "0.9rem" }}>
-							Quantity
-						</Text>
+				<div className='trading-panel'>
+					<div className='trading-group'>
+						<label htmlFor='quantity'>Quantity</label>
 						<input
 							type='number'
+							id='quantity'
+							placeholder='100'
 							value={quantity}
 							onChange={(e) =>
 								setQuantity(Number(e.target.value))
 							}
-							style={{
-								padding: "0.5rem",
-								backgroundColor: "#3a3a3a",
-								color: "#fff",
-								border: "1px solid #4a4a4a",
-								borderRadius: "4px",
-								fontSize: "0.9rem",
-							}}
+							min='1'
+							step='1'
 						/>
-					</Box>
+					</div>
 
-					{/* Limit Price Input (only for limit orders) */}
-					{orderType === "limit" && (
-						<Box
-							style={{
-								display: "flex",
-								flexDirection: "column",
-								gap: "0.5rem",
-							}}
-						>
-							<Text style={{ color: "#aaa", fontSize: "0.9rem" }}>
-								Limit Price
-							</Text>
-							<input
-								type='number'
-								value={limitPrice}
-								onChange={(e) => setLimitPrice(e.target.value)}
-								placeholder='Enter limit price'
-								style={{
-									padding: "0.5rem",
-									backgroundColor: "#3a3a3a",
-									color: "#fff",
-									border: "1px solid #4a4a4a",
-									borderRadius: "4px",
-									fontSize: "0.9rem",
-								}}
-							/>
-						</Box>
-					)}
-
-					{/* Stop Loss Input */}
-					<Box
-						style={{
-							display: "flex",
-							flexDirection: "column",
-							gap: "0.5rem",
-						}}
-					>
-						<Text style={{ color: "#aaa", fontSize: "0.9rem" }}>
-							Stop Loss (Optional)
-						</Text>
+					<div className='trading-group'>
+						<label htmlFor='stop-loss'>Stop Loss</label>
 						<input
 							type='number'
+							id='stop-loss'
+							placeholder='45000'
 							value={stopLoss}
 							onChange={(e) => setStopLoss(e.target.value)}
-							placeholder='Enter stop loss price'
-							style={{
-								padding: "0.5rem",
-								backgroundColor: "#3a3a3a",
-								color: "#fff",
-								border: "1px solid #4a4a4a",
-								borderRadius: "4px",
-								fontSize: "0.9rem",
-							}}
+							step='0.01'
 						/>
-					</Box>
+					</div>
 
-					{/* Take Profit Input */}
-					<Box
-						style={{
-							display: "flex",
-							flexDirection: "column",
-							gap: "0.5rem",
-						}}
-					>
-						<Text style={{ color: "#aaa", fontSize: "0.9rem" }}>
-							Take Profit (Optional)
-						</Text>
+					<div className='trading-group'>
+						<label htmlFor='take-profit'>Take Profit</label>
 						<input
 							type='number'
+							id='take-profit'
+							placeholder='55000'
 							value={takeProfit}
 							onChange={(e) => setTakeProfit(e.target.value)}
-							placeholder='Enter take profit price'
-							style={{
-								padding: "0.5rem",
-								backgroundColor: "#3a3a3a",
-								color: "#fff",
-								border: "1px solid #4a4a4a",
-								borderRadius: "4px",
-								fontSize: "0.9rem",
-							}}
+							step='0.01'
 						/>
-					</Box>
+					</div>
 
-					{/* Buy/Sell Buttons */}
-					<Box
-						style={{
-							display: "flex",
-							gap: "0.5rem",
-							marginTop: "0.5rem",
-						}}
-					>
-						<button
-							onClick={handleBuyOrder}
-							style={{
-								flex: 1,
-								padding: "0.75rem",
-								backgroundColor: "#4CAF50",
-								color: "#fff",
-								border: "none",
-								borderRadius: "4px",
-								cursor: "pointer",
-								fontSize: "1rem",
-								fontWeight: "bold",
-							}}
+					<div className='trading-group'>
+						<label htmlFor='order-type'>Order Type</label>
+						<select
+							id='order-type'
+							value={orderType}
+							onChange={(e) =>
+								setOrderType(
+									e.target.value as "market" | "limit"
+								)
+							}
 						>
-							BUY
+							<option value='market'>Market</option>
+							<option value='limit'>Limit</option>
+						</select>
+					</div>
+
+					<div className='trading-group'>
+						<label htmlFor='limit-price'>Limit Price</label>
+						<input
+							type='number'
+							id='limit-price'
+							placeholder='50000'
+							value={limitPrice}
+							onChange={(e) => setLimitPrice(e.target.value)}
+							step='0.01'
+							disabled={orderType !== "limit"}
+						/>
+					</div>
+
+					<div className='trading-buttons'>
+						<button className='btn buy' onClick={handleBuyOrder}>
+							🚀 BUY
+						</button>
+						<button className='btn sell' onClick={handleSellOrder}>
+							📉 SELL
 						</button>
 						<button
-							onClick={handleSellOrder}
-							style={{
-								flex: 1,
-								padding: "0.75rem",
-								backgroundColor: "#f44336",
-								color: "#fff",
-								border: "none",
-								borderRadius: "4px",
-								cursor: "pointer",
-								fontSize: "1rem",
-								fontWeight: "bold",
-							}}
+							className='btn secondary'
+							onClick={handleResetBrokerData}
 						>
-							SELL
+							🔄 Reset Broker
 						</button>
-					</Box>
+					</div>
+				</div>
 
-					{/* Reset Button */}
-					<button
-						onClick={handleResetBrokerData}
-						style={{
-							padding: "0.5rem",
-							backgroundColor: "#ff9800",
-							color: "#fff",
-							border: "none",
-							borderRadius: "4px",
-							cursor: "pointer",
-							fontSize: "0.9rem",
-							marginTop: "0.5rem",
-						}}
-					>
-						Reset All Orders & Positions
-					</button>
+				{/* Chart Container */}
+				<div
+					ref={chartContainerRef}
+					id='gocharting-chart-container-advanced'
+				>
+					<div className='loading'>
+						Loading advanced trading chart...
+					</div>
+				</div>
 
-					{/* Order History */}
-					<Box
-						style={{
-							marginTop: "1rem",
-							borderTop: "1px solid #3a3a3a",
-							paddingTop: "1rem",
-						}}
-					>
-						<Text
-							style={{
-								fontSize: "1rem",
-								fontWeight: "bold",
-								color: "#ffffff",
-								marginBottom: "0.5rem",
-							}}
-						>
-							Order History (Last 10)
-						</Text>
-						<Box
-							style={{
-								display: "flex",
-								flexDirection: "column",
-								gap: "0.5rem",
-								maxHeight: "300px",
-								overflowY: "auto",
-							}}
-						>
-							{orderHistory.map((order, index) => (
-								<Box
-									key={index}
+				{/* Order Status Display */}
+				<div className='order-status'>
+					<h3>📋 Order History</h3>
+					<div className='order-list'>
+						{orderHistory.map((order, index) => (
+							<div
+								key={index}
+								className={`order-item ${
+									order.side
+								} ${order.status.toLowerCase()}`}
+							>
+								<strong>
+									{order.side.toUpperCase()} {order.quantity}{" "}
+									{order.symbol}
+								</strong>{" "}
+								@ {order.orderType}
+								{order.limitPrice &&
+									` - Price: ${order.limitPrice}`}
+								{order.stopLoss && ` - SL: ${order.stopLoss}`}
+								{order.takeProfit &&
+									` - TP: ${order.takeProfit}`}
+								{" - "}
+								<span
 									style={{
-										padding: "0.5rem",
-										backgroundColor: "#3a3a3a",
-										borderRadius: "4px",
-										fontSize: "0.8rem",
+										color:
+											order.status === "Filled"
+												? "#28a745"
+												: order.status === "Cancelled"
+												? "#dc3545"
+												: order.status === "Modified"
+												? "#ff9800"
+												: "#4a90e2",
 									}}
 								>
-									<Box
-										style={{
-											display: "flex",
-											justifyContent: "space-between",
-											marginBottom: "0.25rem",
-										}}
-									>
-										<Text
-											style={{
-												color:
-													order.side === "buy"
-														? "#4CAF50"
-														: order.side === "sell"
-														? "#f44336"
-														: "#fff",
-												fontWeight: "bold",
-											}}
-										>
-											{order.side.toUpperCase()}
-										</Text>
-										<Text style={{ color: "#888" }}>
-											{order.timestamp}
-										</Text>
-									</Box>
-									<Text style={{ color: "#ccc" }}>
-										{order.quantity} {order.symbol} @{" "}
-										{order.orderType}
-										{order.limitPrice &&
-											` - Price: ${order.limitPrice}`}
-										{order.stopLoss &&
-											` - SL: ${order.stopLoss}`}
-										{order.takeProfit &&
-											` - TP: ${order.takeProfit}`}
-									</Text>
-									<Text
-										style={{
-											color:
-												order.status === "Filled"
-													? "#4CAF50"
-													: order.status ===
-													  "Cancelled"
-													? "#f44336"
-													: order.status ===
-													  "Modified"
-													? "#ff9800"
-													: "#2196F3",
-											fontSize: "0.75rem",
-											marginTop: "0.25rem",
-										}}
-									>
-										{order.status}
-									</Text>
-								</Box>
-							))}
-						</Box>
-					</Box>
-				</Box>
-			</Box>
-		</Box>
+									{order.status}
+								</span>
+							</div>
+						))}
+					</div>
+				</div>
+
+				{/* Status Bar */}
+				<div className='status'>{status}</div>
+			</div>
+		</div>
 	);
 };

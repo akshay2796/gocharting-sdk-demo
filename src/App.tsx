@@ -1,11 +1,18 @@
+import ChartDemo from "./components/ChartDemo";
+
+// Alternative components (uncomment to use)
 // import CombineChart from "./pages/CombineChart";
 import AdvancedTradingPage from "./pages/AdvancedTradingPage";
-import "./App.css";
 
 function App() {
-	// Toggle between examples by changing the component below
-	// return <CombineChart />;
+	// Default: Use the simplified ChartDemo that matches chart-sdk-codepen.html
+	// return <ChartDemo />;
+
+	// Alternative: Use the advanced trading page with order management
 	return <AdvancedTradingPage />;
+
+	// Alternative: Use the combine chart example
+	// return <CombineChart />;
 }
 
 export default App;

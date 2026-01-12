@@ -1,0 +1,155 @@
+/**
+ * ChartDemo Component Styles
+ *
+ * Matches the styling from chart-sdk-codepen.html reference implementation.
+ */
+
+.chart-demo-container {
+	min-height: 100vh;
+	padding: 20px;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+	color: white;
+}
+
+.chart-demo-header {
+	text-align: center;
+	margin-bottom: 30px;
+}
+
+.chart-demo-header h1 {
+	font-size: 2.5rem;
+	margin-bottom: 10px;
+	text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.chart-demo-header p {
+	font-size: 1.1rem;
+	opacity: 0.9;
+}
+
+.chart-demo-controls {
+	display: flex;
+	gap: 15px;
+	justify-content: center;
+	margin-bottom: 20px;
+	flex-wrap: wrap;
+	background: rgba(255, 255, 255, 0.1);
+	padding: 20px;
+	border-radius: 12px;
+	backdrop-filter: blur(10px);
+	max-width: 1200px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.chart-demo-controls .btn {
+	border: none;
+	padding: 12px 24px;
+	border-radius: 8px;
+	cursor: pointer;
+	font-size: 14px;
+	font-weight: 600;
+	transition: all 0.3s ease;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: white;
+}
+
+.chart-demo-controls .btn:hover:not(:disabled) {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.chart-demo-controls .btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.chart-demo-controls .btn.primary {
+	background: #4a90e2;
+}
+
+.chart-demo-controls .btn.primary:hover:not(:disabled) {
+	background: #357abd;
+}
+
+.chart-demo-controls .btn.primary.active {
+	background: #28a745;
+	box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.4);
+}
+
+.chart-demo-wrapper {
+	display: flex;
+	justify-content: center;
+	max-width: 1200px;
+	margin: 0 auto;
+}
+
+.chart-demo-chart {
+	width: 100%;
+	max-width: 800px;
+	height: 500px;
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+	background: #1a1a1a;
+	position: relative;
+}
+
+.chart-demo-loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	font-size: 18px;
+	color: white;
+}
+
+.chart-demo-status {
+	margin-top: 20px;
+	padding: 15px;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 8px;
+	text-align: center;
+	max-width: 1200px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+	.chart-demo-container {
+		padding: 15px;
+	}
+
+	.chart-demo-header h1 {
+		font-size: 1.8rem;
+	}
+
+	.chart-demo-controls {
+		flex-direction: column;
+		align-items: center;
+		padding: 15px;
+	}
+
+	.chart-demo-controls .btn {
+		width: 100%;
+		max-width: 200px;
+	}
+
+	.chart-demo-chart {
+		height: 400px;
+	}
+}
+
+@media (max-width: 480px) {
+	.chart-demo-header h1 {
+		font-size: 1.5rem;
+	}
+
+	.chart-demo-chart {
+		height: 350px;
+	}
+}
+
