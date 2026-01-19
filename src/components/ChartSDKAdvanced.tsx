@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { createChartDatafeed } from "../utils/chart-datafeed";
 import * as GoChartingSDK from "@gocharting/chart-sdk";
+import { createChartDatafeed } from "../utils/chart-datafeed";
 import type {
 	ChartInstance,
 	ChartConfig,
@@ -10,14 +10,12 @@ import type {
 	OrderSide,
 	OrderType as SDKOrderType,
 	OrderStatus,
+	Datafeed,
 } from "@gocharting/chart-sdk";
 import "./ChartSDKAdvanced.css";
 
 // Extract the appCallback type from ChartConfig
 type AppCallback = NonNullable<ChartConfig["appCallback"]>;
-
-// Type for the datafeed returned by createChartDatafeed
-type ChartDatafeed = ReturnType<typeof createChartDatafeed>;
 
 interface OrderHistoryItem {
 	timestamp: string;
@@ -104,8 +102,10 @@ interface DemoAccount {
 
 export const ChartSDKAdvanced = () => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
+	// In the installed SDK, ChartInstance is both the wrapper and the component
 	const chartWrapperRef = useRef<ChartInstance | null>(null);
-	const datafeedRef = useRef<ChartDatafeed | null>(null);
+	const chartInstanceRef = useRef<ChartInstance | null>(null);
+	const datafeedRef = useRef<Datafeed | null>(null);
 
 	// Trading state
 	const [quantity, setQuantity] = useState(100);
@@ -155,11 +155,12 @@ export const ChartSDKAdvanced = () => {
 		return () => {
 			clearTimeout(timer);
 			// Cleanup chart on unmount
-			if (chartWrapperRef.current) {
+			if (
+				chartWrapperRef.current &&
+				!chartWrapperRef.current.isDestroyed()
+			) {
 				try {
-					if (!chartWrapperRef.current.isDestroyed()) {
-						chartWrapperRef.current.destroy();
-					}
+					chartWrapperRef.current.destroy();
 				} catch (e) {
 					if (
 						!(e instanceof Error) ||
@@ -168,12 +169,14 @@ export const ChartSDKAdvanced = () => {
 						console.error("Error destroying chart:", e);
 					}
 				}
+				chartInstanceRef.current = null;
 				chartWrapperRef.current = null;
 			}
 			// Cleanup datafeed
 			if (datafeedRef.current) {
 				try {
-					datafeedRef.current.destroy();
+					// Cast to any to access optional destroy method
+					(datafeedRef.current as any).destroy?.();
 				} catch (e) {
 					console.error("Error destroying datafeed:", e);
 				}
@@ -185,7 +188,7 @@ export const ChartSDKAdvanced = () => {
 
 	// Helper methods
 	const updateChartBrokerData = () => {
-		if (!chartWrapperRef.current) {
+		if (!chartInstanceRef.current) {
 			console.warn("Chart instance not available");
 			return;
 		}
@@ -198,7 +201,7 @@ export const ChartSDKAdvanced = () => {
 		};
 
 		try {
-			chartWrapperRef.current.setBrokerAccounts(demoBrokerData);
+			chartInstanceRef.current.setBrokerAccounts(demoBrokerData);
 			console.log("✅ Broker data updated successfully");
 		} catch (error) {
 			console.error("❌ Failed to update chart broker data:", error);
@@ -250,7 +253,7 @@ export const ChartSDKAdvanced = () => {
 		}
 
 		// Prevent double initialization
-		if (chartWrapperRef.current) {
+		if (chartInstanceRef.current) {
 			console.log("Chart already exists, skipping creation");
 			return;
 		}
@@ -268,14 +271,15 @@ export const ChartSDKAdvanced = () => {
 			const chartConfig = {
 				symbol: "BYBIT:FUTURE:BTCUSDT",
 				interval: "1D",
-				datafeed: datafeed as any,
+				datafeed: datafeed,
 				debugLog: true,
 				licenseKey: "demo-550e8400-e29b-41d4-a716-446655440000",
 				theme: "dark",
 				enableTrading: true,
 				appCallback: handleAppCallback,
 				onReady: (chartInstance) => {
-					// Chart is now ready - the wrapper ref is already set
+					// Store the actual chart instance from the callback
+					chartInstanceRef.current = chartInstance;
 					setStatus("Chart loaded with advanced trading features!");
 
 					console.log("=== CHART READY - TRADING DIAGNOSTICS ===");
@@ -288,8 +292,6 @@ export const ChartSDKAdvanced = () => {
 					console.log("==========================================");
 
 					setupDemoBrokerData(chartInstance);
-
-					chartWrapperRef.current = chartInstance;
 				},
 				onError: (error) => {
 					console.error("Chart creation error:", error);
@@ -301,11 +303,16 @@ export const ChartSDKAdvanced = () => {
 				},
 			} satisfies ChartConfig;
 
-			// Store the wrapper object which has destroy(), setSymbol(), etc.
-			const chartWrapper = GoChartingSDK.createChart(
+			// Create chart - the same instance is returned and passed to onReady
+			const chart = GoChartingSDK.createChart(
 				"#gocharting-chart-container-advanced",
 				chartConfig
 			);
+
+			// Store the chart instance (in installed SDK, this is the same as onReady param)
+			if (!chartWrapperRef.current) {
+				chartWrapperRef.current = chart;
+			}
 		} catch (error) {
 			console.error("Error initializing chart:", error);
 			setStatus("Failed to initialize chart");
@@ -383,7 +390,7 @@ export const ChartSDKAdvanced = () => {
 			JSON.stringify(orderData, null, 2)
 		);
 
-		if (!chartWrapperRef.current) {
+		if (!chartInstanceRef.current) {
 			console.warn("Chart instance not available");
 			return;
 		}
@@ -1003,10 +1010,11 @@ export const ChartSDKAdvanced = () => {
 											order.status === "Filled"
 												? "#28a745"
 												: order.status === "Cancelled"
-												? "#dc3545"
-												: order.status === "Modified"
-												? "#ff9800"
-												: "#4a90e2",
+													? "#dc3545"
+													: order.status ===
+														  "Modified"
+														? "#ff9800"
+														: "#4a90e2",
 									}}
 								>
 									{order.status}

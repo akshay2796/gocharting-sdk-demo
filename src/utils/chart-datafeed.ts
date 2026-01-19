@@ -5,7 +5,17 @@ import {
 	SearchResult,
 	SearchSymbolsResult,
 	DataStatus,
+	Datafeed,
+	UDFResponse,
+	BarsResult,
+	PeriodParams,
 } from "@gocharting/chart-sdk";
+
+type IResponse<T = any> = {
+	id: string;
+	payload: T;
+	status: number;
+};
 
 // ============================================================================
 // Bybit API Response Types
@@ -14,7 +24,7 @@ import {
 /**
  * Bybit Kline (OHLCV) API response structure
  */
-interface BybitKlineResponse {
+type BybitKlineResponse = {
 	retCode: number;
 	retMsg: string;
 	result: {
@@ -24,12 +34,12 @@ interface BybitKlineResponse {
 	};
 	retExtInfo: Record<string, unknown>;
 	time: number;
-}
+};
 
 /**
  * Bybit WebSocket trade data structure
  */
-interface BybitTradeData {
+type BybitTradeData = {
 	/** Timestamp in milliseconds */
 	T: number;
 	/** Symbol */
@@ -42,17 +52,17 @@ interface BybitTradeData {
 	i: string;
 	/** Size/Volume */
 	v: string;
-}
+};
 
 /**
  * Bybit WebSocket message structure
  */
-interface BybitWebSocketMessage {
+type BybitWebSocketMessage = {
 	topic: string;
 	type: string;
 	data: BybitTradeData[];
 	ts?: number;
-}
+};
 
 // ============================================================================
 // GoCharting API Response Types
@@ -61,24 +71,51 @@ interface BybitWebSocketMessage {
 /**
  * GoCharting instrument search API response
  */
-interface GoChartingSearchResponse {
-	status: number;
-	payload: {
-		results: GoChartingSearchResult[];
-	};
-}
+type GoChartingSearchResponse = {
+	q: string;
+	results: GoChartingSearchResult[];
+};
 
 /**
  * Individual search result from GoCharting API
  */
-interface GoChartingSearchResult {
+type GoChartingSearchResult = {
 	item: GoChartingSearchItem;
-}
+	matches: GoChartingSearchMatch[];
+};
+
+type GoChartingSearchItem = {
+	exchange: string;
+	segment: string;
+	symbol: string;
+	asset_type: string;
+	name: string;
+	key: string;
+	is_group: boolean;
+	data_source_location: string;
+	members: GoChartingSearchItemMember[];
+};
+
+type GoChartingSearchMatch = {
+	key: string;
+	value: string;
+	indices: number[][];
+};
+
+type GoChartingSearchItemMember = {
+	item: Omit<GoChartingSearchItem, "is_group" | "members">;
+	matches: GoChartingSearchMatch[];
+};
+
+type GoChartingExactSearchResponse = {
+	q: string[];
+	results: GoChartingExactSearchItem[];
+};
 
 /**
  * Search item structure from GoCharting API
  */
-interface GoChartingSearchItem {
+type GoChartingExactSearchItem = {
 	symbol: string;
 	name: string;
 	exchange: string;
@@ -108,7 +145,7 @@ interface GoChartingSearchItem {
 		contains_ambiguous_symbols?: boolean;
 		valid_intervals?: string[];
 	};
-}
+};
 
 // ============================================================================
 // Datafeed Internal Types
@@ -117,7 +154,7 @@ interface GoChartingSearchItem {
 /**
  * Raw bar data structure (before UDF conversion)
  */
-interface RawBar {
+type RawBar = {
 	time: number;
 	open: number;
 	high: number;
@@ -125,25 +162,25 @@ interface RawBar {
 	close: number;
 	volume: number;
 	date?: string;
-}
+};
 
 /**
  * Resolution conversion result
  */
-interface ResolutionInfo {
+type ResolutionInfo = {
 	scale: number;
 	units: string;
 	label: string;
-}
+};
 
 /**
  * Exchange info lookup structure
  */
-interface ExchangeInfoLookup {
+type ExchangeInfoLookup = {
 	timezone: string;
 	session: string;
 	country_cd?: string;
-}
+};
 
 /**
  * Union type for all real-time data callbacks
@@ -153,30 +190,30 @@ type RealtimeDataCallback = (data: Bar | TickData | TradeMessage) => void;
 /**
  * Streaming subscription handler
  */
-interface StreamingHandler {
+type StreamingHandler = {
 	id: string;
 	callback: RealtimeDataCallback;
 	resolution: string | Resolution;
 	lastDailyBar: Bar | null | undefined;
 	onResetCacheNeededCallback?: (() => void) | null;
-}
+};
 
 /**
  * Subscription item for channel management
  */
-interface SubscriptionItem {
+type SubscriptionItem = {
 	subscriberUID: string;
 	resolution: string | Resolution;
 	lastDailyBar: Bar | null | undefined;
 	handlers: StreamingHandler[];
 	symbolInfo: SymbolInfo;
 	channelString: string;
-}
+};
 
 /**
  * Trade message for real-time updates
  */
-interface TradeMessage {
+type TradeMessage = {
 	type: string;
 	productId: string;
 	symbol: string;
@@ -188,12 +225,12 @@ interface TradeMessage {
 	quantity: number;
 	amount: number;
 	side: string;
-}
+};
 
 /**
- * Demo socket interface (mock WebSocket)
+ * Demo socket type (mock WebSocket= )
  */
-interface DemoSocket {
+type DemoSocket = {
 	readyState: number;
 	url: string;
 	send: (message: string) => void;
@@ -202,91 +239,59 @@ interface DemoSocket {
 		event: string,
 		callback: (event?: unknown) => void
 	) => void;
-}
+};
 
 /**
  * Subscription request structure
  */
-interface SubscriptionRequest {
+type SubscriptionRequest = {
 	op: string;
 	args: string[];
 	symbol?: string;
-}
+};
 
 /**
  * Mock symbol data structure
  */
-interface MockSymbolData {
+type MockSymbolData = {
 	symbol: string;
 	description: string;
 	industry: string;
 	logo_url: string;
-}
+};
 
 /**
  * Bybit feed message structure for demo streaming
  */
-interface BybitFeedMessage {
+type BybitFeedMessage = {
 	topic?: string;
 	type?: string;
 	data?: BybitTradeData[];
-}
+};
 
 /**
  * Datafeed configuration ready callback config
  */
-interface DatafeedConfig {
+type DatafeedConfig = {
 	supported_resolutions: string[];
 	supports_marks: boolean;
 	supports_timescale_marks: boolean;
 	supports_time: boolean;
-}
-
-/**
- * Extended PeriodParams with Date objects (as received from SDK)
- */
-interface ExtendedPeriodParams {
-	from: Date;
-	to: Date;
-	firstDataRequest: boolean;
-	rows?: number;
-	countBack?: number;
-}
-
-/**
- * UDF OK Response format
- */
-interface UDFOkResponse {
-	s: "ok";
-	t: number[];
-	o: number[];
-	h: number[];
-	l: number[];
-	c: number[];
-	v: number[];
-}
-
-/**
- * UDF No Data Response format
- */
-interface UDFNoDataResponse {
-	s: "no_data";
-	nextTime: number | null;
-}
+};
 
 /**
  * Tick data for real-time streaming
  */
-interface TickData {
+type TickData = {
 	time: number;
 	price: number;
 	volume: number;
-}
+};
 
 /**
  * Mock search result structure (extended with key for compare functionality)
  */
-interface MockSearchResult {
+type MockSearchResult = {
 	symbol: string;
 	full_name: string;
 	description: string;
@@ -294,7 +299,7 @@ interface MockSearchResult {
 	ticker: string;
 	type: string;
 	key: string;
-}
+};
 
 /**
  * Creates a demo datafeed for the GoCharting SDK
@@ -317,7 +322,7 @@ interface MockSearchResult {
  * datafeed.destroy();
  * ```
  */
-export const createChartDatafeed = () => {
+export const createChartDatafeed = (): Datafeed => {
 	const datafeed = {
 		symbolCache: new Map<string, SymbolInfo>(),
 		searchSymbolController: null as AbortController | null,
@@ -332,7 +337,7 @@ export const createChartDatafeed = () => {
 		destroy(): void {
 			// Clear all streaming intervals
 			Object.values(this.streamingIntervals).forEach((interval) => {
-				clearInterval(interval);
+				clearInterval(interval as ReturnType<typeof setInterval>);
 			});
 			this.streamingIntervals = {};
 			// Abort any pending search requests
@@ -346,8 +351,8 @@ export const createChartDatafeed = () => {
 		async getBars(
 			symbolInfo: SymbolInfo,
 			resolution: string | Resolution,
-			periodParams: ExtendedPeriodParams
-		): Promise<UDFOkResponse | UDFNoDataResponse> {
+			periodParams: PeriodParams
+		): Promise<BarsResult | UDFResponse> {
 			const { from, to } = periodParams;
 			console.log("🔍 [DemoDatafeed] getBars called with:", {
 				symbolInfo,
@@ -379,9 +384,14 @@ export const createChartDatafeed = () => {
 						}
 					);
 					// Generate demo data for other symbols or as fallback
+					// Convert timestamps to Date objects if needed
+					const fromDate =
+						typeof from === "number" ? new Date(from * 1000) : from;
+					const toDate =
+						typeof to === "number" ? new Date(to * 1000) : to;
 					rawBars = this.generateDemoData(
-						from,
-						to,
+						fromDate,
+						toDate,
 						resolution,
 						symbolInfo
 					);
@@ -392,9 +402,14 @@ export const createChartDatafeed = () => {
 			} catch (error) {
 				console.error("❌ [DemoDatafeed] getBars failed:", error);
 				// Fallback to demo data on error
+				// Convert timestamps to Date objects if needed
+				const fromDate =
+					typeof from === "number" ? new Date(from * 1000) : from;
+				const toDate =
+					typeof to === "number" ? new Date(to * 1000) : to;
 				const rawBars = this.generateDemoData(
-					from,
-					to,
+					fromDate,
+					toDate,
 					resolution,
 					symbolInfo
 				);
@@ -404,9 +419,7 @@ export const createChartDatafeed = () => {
 		},
 
 		// Convert raw bars to UDF format
-		convertToUDFFormat(
-			rawBars: RawBar[]
-		): UDFOkResponse | UDFNoDataResponse {
+		convertToUDFFormat(rawBars: RawBar[]): BarsResult | UDFResponse {
 			if (!rawBars || rawBars.length === 0) {
 				return {
 					s: "no_data" as const,
@@ -467,9 +480,8 @@ export const createChartDatafeed = () => {
 				}
 				// Try to use real GoCharting API for symbol resolution
 				try {
-					const symbolInfo = await this.resolveSymbolFromAPI(
-						symbolName
-					);
+					const symbolInfo =
+						await this.resolveSymbolFromAPI(symbolName);
 					console.log({ symbolInfo });
 					this.symbolCache.set(symbolName, symbolInfo);
 					onResolve(symbolInfo);
@@ -506,10 +518,10 @@ export const createChartDatafeed = () => {
 			if (!res.ok) {
 				throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 			}
-			const data = (await res.json()) as GoChartingSearchResponse;
+			const data =
+				(await res.json()) as IResponse<GoChartingExactSearchResponse>;
 			if (data.status === 200 && data.payload?.results?.length > 0) {
-				const result: GoChartingSearchItem =
-					data.payload.results[0].item;
+				const result = data.payload.results[0];
 				const symbolInfo: SymbolInfo = {
 					symbol: result.symbol,
 					full_name: `${result.exchange}:${result.segment}:${result.symbol}`,
@@ -673,7 +685,7 @@ export const createChartDatafeed = () => {
 									{ open: true },
 									{ open: true },
 									{ open: true },
-							  ]
+								]
 							: [
 									{ open: false },
 									{ open: true },
@@ -682,7 +694,7 @@ export const createChartDatafeed = () => {
 									{ open: true },
 									{ open: true },
 									{ open: false },
-							  ],
+								],
 					contains_ambiguous_symbols: false,
 					valid_intervals: [
 						"1",
@@ -792,7 +804,7 @@ export const createChartDatafeed = () => {
 		async getBybitBars(
 			symbolInfo: SymbolInfo,
 			resolution: string | Resolution,
-			periodParams: ExtendedPeriodParams
+			periodParams: PeriodParams
 		): Promise<RawBar[]> {
 			const { from, to, firstDataRequest, rows } = periodParams;
 			// Use the same logic as real datafeed.js
@@ -836,8 +848,13 @@ export const createChartDatafeed = () => {
 					rows || 200
 				}`;
 			} else {
-				const startDate = from.getTime();
-				const endDate = to.getTime();
+				// Convert to milliseconds if needed (from is in seconds in installed SDK)
+				const startDate =
+					typeof from === "number"
+						? from * 1000
+						: (from as Date).getTime();
+				const endDate =
+					typeof to === "number" ? to * 1000 : (to as Date).getTime();
 				url = `https://api.bybit.com/v5/market/kline?symbol=${bybitSymbol}&interval=${interval}&start=${startDate}&end=${endDate}&limit=${
 					rows || 200
 				}`;
@@ -981,8 +998,8 @@ export const createChartDatafeed = () => {
 				);
 			}
 
-			// Return mock symbol info using GoCharting SDK SymbolInfo interface
-			// Note: Fields like minmov, pricescale, name, listed_exchange are NOT in SDK interface
+			// Return mock symbol info using GoCharting SDK SymbolInfo typ= e
+			// Note: Fields like minmov, pricescale, name, listed_exchange are NOT in SDK typ= e
 			// Use max_tick_precision + tick_size instead of minmov/pricescale
 			// Use description instead of name
 			// Use quote_currency instead of currency_code
@@ -1264,7 +1281,8 @@ export const createChartDatafeed = () => {
 				throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 			}
 
-			const data = (await res.json()) as GoChartingSearchResponse;
+			const data =
+				(await res.json()) as IResponse<GoChartingSearchResponse>;
 
 			if (data.status === 200 && data.payload?.results) {
 				const transformedResults: SearchResult[] = [];
@@ -1274,20 +1292,17 @@ export const createChartDatafeed = () => {
 						const item: GoChartingSearchItem = result.item;
 
 						if (item.is_group && item.members) {
-							item.members.forEach(
-								(member: GoChartingSearchResult) => {
-									const memberItem: GoChartingSearchItem =
-										member.item;
-									transformedResults.push({
-										symbol: memberItem.symbol,
-										full_name: memberItem.key,
-										description: memberItem.name,
-										exchange: memberItem.exchange,
-										ticker: memberItem.symbol,
-										type: memberItem.asset_type.toLowerCase() as SearchResult["type"],
-									});
-								}
-							);
+							item.members.forEach((member) => {
+								const memberItem = member.item;
+								transformedResults.push({
+									symbol: memberItem.symbol,
+									full_name: memberItem.key,
+									description: memberItem.name,
+									exchange: memberItem.exchange,
+									ticker: memberItem.symbol,
+									type: memberItem.asset_type.toLowerCase() as SearchResult["type"],
+								});
+							});
 						} else {
 							transformedResults.push({
 								symbol: item.symbol,
@@ -1349,19 +1364,38 @@ export const createChartDatafeed = () => {
 			}
 		},
 
-		// Optional datafeed interface methods for real-time data
+		// Optional datafeed type methods for real-time dat= a
 		subscribeTicks(
 			symbolInfo: SymbolInfo,
 			resolution: string | Resolution,
-			onRealtimeCallback: RealtimeDataCallback,
+			onRealtimeCallback: (bar: Bar) => void,
 			subscriberUID: string,
 			onResetCacheNeededCallback?: () => void
 		): void {
+			console.log("📊 [DemoDatafeed] subscribeTicks called:", {
+				symbol: symbolInfo.symbol,
+				resolution,
+				subscriberUID,
+			});
+
+			// Wrap the callback to match our internal RealtimeDataCallback type
+			const wrappedCallback: RealtimeDataCallback = (data) => {
+				// Only pass Bar objects to the SDK callback
+				if (
+					"open" in data &&
+					"high" in data &&
+					"low" in data &&
+					"close" in data
+				) {
+					onRealtimeCallback(data as Bar);
+				}
+			};
+
 			// Use the same pattern as the real datafeed.js
 			this.subscribeOnStream(
 				symbolInfo,
 				resolution,
-				onRealtimeCallback,
+				wrappedCallback,
 				subscriberUID,
 				onResetCacheNeededCallback,
 				null // lastDailyBar - not used in demo
@@ -1418,12 +1452,20 @@ export const createChartDatafeed = () => {
 			onResetCacheNeededCallback?: (() => void) | null,
 			lastDailyBar?: Bar | null
 		): void {
+			console.log("🔌 [DemoDatafeed] subscribeOnStream called:", {
+				symbol: symbolInfo.symbol,
+				exchange: symbolInfo.exchange,
+				resolution,
+				subscriberUID,
+			});
+
 			// Initialize streaming infrastructure like streaming.js
 			if (!this.channelToSubscription) {
 				this.channelToSubscription = new Map();
 			}
 
 			if (!this.demoSocket) {
+				console.log("🔌 [DemoDatafeed] Initializing WebSocket...");
 				this.initializeDemoSocket(symbolInfo);
 			}
 
@@ -1639,6 +1681,7 @@ export const createChartDatafeed = () => {
 
 				// Find the subscription for this topic
 				const subscriptionItem = this.channelToSubscription?.get(topic);
+
 				if (!subscriptionItem) {
 					console.log(
 						"❌ [DemoDatafeed] No subscription found for topic:",
@@ -1896,5 +1939,14 @@ export const createChartDatafeed = () => {
 		},
 	};
 
-	return datafeed;
+	console.log("✅ [DemoDatafeed] Datafeed created with methods:", {
+		hasGetBars: typeof datafeed.getBars === "function",
+		hasResolveSymbol: typeof datafeed.resolveSymbol === "function",
+		hasSearchSymbols: typeof datafeed.searchSymbols === "function",
+		hasSubscribeTicks: typeof datafeed.subscribeTicks === "function",
+		hasUnsubscribeTicks: typeof datafeed.unsubscribeTicks === "function",
+		hasDestroy: typeof datafeed.destroy === "function",
+	});
+
+	return datafeed as Datafeed;
 };

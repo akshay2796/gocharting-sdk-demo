@@ -49,8 +49,9 @@ const EXCLUDED_INDICATORS = [
 
 export const ChartDemo = () => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
-	// Store the wrapper returned by createChart (has destroy method)
+
 	const chartWrapperRef = useRef<ChartInstance | null>(null);
+	const chartInstance = useRef<ChartInstance | null>(null);
 	const datafeedRef = useRef<ChartDatafeed | null>(null);
 	const [status, setStatus] = useState("Ready to load chart...");
 	const [currentSymbol, setCurrentSymbol] = useState<string>(SYMBOLS.BTC);
@@ -67,7 +68,7 @@ export const ChartDemo = () => {
 		}
 
 		// Prevent double initialization
-		if (chartWrapperRef.current) {
+		if (chartInstance.current) {
 			console.log("Chart already exists, skipping creation");
 			return;
 		}
@@ -97,10 +98,11 @@ export const ChartDemo = () => {
 						console.log("📊 CHART_SELECTED event:", message);
 					}
 				},
-				onReady: () => {
+				onReady: (instance) => {
 					// Chart is now ready - the wrapper ref is already set
 					setIsChartReady(true);
 					updateStatus("Chart loaded with simplified API!");
+					chartInstance.current = instance;
 				},
 				onError: (error) => {
 					const errorMessage =
@@ -109,12 +111,16 @@ export const ChartDemo = () => {
 				},
 			};
 
-			// Store the wrapper object which has destroy(), setSymbol(), etc.
-			const chartWrapper = GoChartingSDK.createChart(
+			// Create chart and store the instance
+			const chart = GoChartingSDK.createChart(
 				"#chart-container",
 				chartConfig
 			);
-			chartWrapperRef.current = chartWrapper;
+
+			// Store the chart instance (in installed SDK, this is the same as onReady param)
+			if (!chartWrapperRef.current) {
+				chartWrapperRef.current = chart;
+			}
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown error";
@@ -124,7 +130,7 @@ export const ChartDemo = () => {
 
 	const changeSymbol = useCallback(
 		async (newSymbol: string) => {
-			if (!chartWrapperRef.current) {
+			if (!chartInstance.current) {
 				updateStatus("❌ Chart not ready");
 				return;
 			}
@@ -136,7 +142,7 @@ export const ChartDemo = () => {
 
 			try {
 				updateStatus(`🔄 Switching to ${newSymbol}...`);
-				chartWrapperRef.current.setSymbol(newSymbol);
+				chartInstance.current.setSymbol(newSymbol);
 				setCurrentSymbol(newSymbol);
 				updateStatus(`✅ Switched to ${newSymbol}`);
 			} catch (error) {
@@ -171,7 +177,7 @@ export const ChartDemo = () => {
 
 			// Only cleanup if we actually created a chart
 			if (chartCreated && chartWrapperRef.current) {
-				// Cleanup chart wrapper (has destroy method)
+				// Cleanup chart instance (has destroy method)
 				try {
 					// Check if not already destroyed
 					if (!chartWrapperRef.current.isDestroyed()) {
@@ -186,12 +192,14 @@ export const ChartDemo = () => {
 						console.error("Error destroying chart:", e);
 					}
 				}
+				chartInstance.current = null;
 				chartWrapperRef.current = null;
 
 				// Cleanup datafeed
 				if (datafeedRef.current) {
 					try {
-						datafeedRef.current.destroy();
+						// Cast to any to access optional destroy method
+						(datafeedRef.current as any).destroy?.();
 					} catch (e) {
 						console.error("Error destroying datafeed:", e);
 					}

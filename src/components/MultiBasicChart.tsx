@@ -1,0 +1,204 @@
+import { useEffect, useRef, useState } from "react";
+import * as GoChartingSDK from "@gocharting/chart-sdk";
+import type { ChartInstance } from "@gocharting/chart-sdk";
+import { createChartDatafeed } from "../utils/chart-datafeed";
+import "./MultiBasicChart.css";
+
+const MultiBasicChart = () => {
+	const chartContainerRef = useRef<HTMLDivElement>(null);
+	// In the installed SDK, ChartInstance is both the wrapper and the component
+	const chartWrapperRef = useRef<ChartInstance | null>(null);
+	const chartInstanceRef = useRef<ChartInstance | null>(null);
+	const [status, setStatus] = useState<string>("Initializing chart...");
+	const [currentSymbol, setCurrentSymbol] = useState<string>(
+		"BYBIT:FUTURE:BTCUSDT"
+	);
+
+	useEffect(() => {
+		let mounted = true;
+
+		const initializeChart = async () => {
+			if (!chartContainerRef.current) return;
+
+			try {
+				setStatus("Creating chart...");
+
+				// Create datafeed
+				const datafeed = createChartDatafeed();
+
+				// Create chart using SDK
+				const chart = GoChartingSDK.createChart(
+					chartContainerRef.current,
+					{
+						symbol: currentSymbol,
+						interval: "1m",
+						datafeed: datafeed,
+						debugLog: false,
+						licenseKey: "demo-550e8400-e29b-41d4-a716-446655440000",
+						exclude: {
+							indicators: [
+								"ACC",
+								"CHAIKINMFI",
+								"CHAIKINVOLATILITY",
+								"COPPOCK",
+								"EOM",
+								"FORCEINDEX",
+								"KLINGER",
+								"KST",
+								"MFI",
+								"ONBALANCEVOLUME",
+								"ROC",
+								"SMA",
+								"TWIGGSMONEYFLOW",
+								"VOLUMEUNDERLAY",
+								"VWAP",
+								"VWMA",
+								"WMFI",
+								"OI",
+								"SANBAND",
+								"TRADEVOLUMEINDEX",
+								"VOLUMEOSCILLATOR",
+								"VOLUMEROC",
+							],
+						},
+						theme: "dark",
+						onReady: (chartInstance: any) => {
+							// Store the actual chart instance from the callback
+							chartInstanceRef.current = chartInstance;
+							if (mounted) {
+								setStatus("Chart ready!");
+							}
+						},
+						onError: (error: Error) => {
+							console.error("Chart creation error:", error);
+							if (mounted) {
+								setStatus(`❌ Error: ${error.message}`);
+							}
+						},
+					}
+				);
+
+				// Store the chart instance (in installed SDK, this is the same as onReady param)
+				if (!chartWrapperRef.current) {
+					chartWrapperRef.current = chart;
+				}
+			} catch (error) {
+				console.error("❌ Error initializing chart:", error);
+				if (mounted) {
+					setStatus(
+						`❌ Error: ${
+							error instanceof Error
+								? error.message
+								: "Unknown error"
+						}`
+					);
+				}
+			}
+		};
+
+		initializeChart();
+
+		return () => {
+			mounted = false;
+			if (
+				chartWrapperRef.current &&
+				!chartWrapperRef.current.isDestroyed()
+			) {
+				try {
+					chartWrapperRef.current.destroy();
+				} catch (error) {
+					console.error("Error destroying chart:", error);
+				}
+			}
+
+			chartInstanceRef.current = null;
+			chartWrapperRef.current = null;
+		};
+	}, []);
+
+	const handleSymbolChange = (newSymbol: string) => {
+		if (!chartInstanceRef.current) {
+			setStatus("❌ Chart not ready");
+			return;
+		}
+
+		if (currentSymbol === newSymbol) {
+			setStatus(`ℹ️ Already showing ${newSymbol}`);
+			return;
+		}
+
+		try {
+			setStatus(`🔄 Switching to ${newSymbol}...`);
+			chartInstanceRef.current.setSymbol(newSymbol);
+			setCurrentSymbol(newSymbol);
+			setStatus(`✅ Switched to ${newSymbol}`);
+		} catch (error) {
+			console.error("❌ Error changing symbol:", error);
+			setStatus(
+				`❌ Error: ${
+					error instanceof Error ? error.message : "Unknown error"
+				}`
+			);
+		}
+	};
+
+	const handleResubscribeAll = () => {
+		if (!chartInstanceRef.current) {
+			setStatus("❌ Chart not ready");
+			return;
+		}
+
+		try {
+			chartInstanceRef.current.resubscribeAll();
+			setStatus("✅ Resubscribed to all data streams");
+		} catch (error) {
+			console.error("❌ Error resubscribing:", error);
+			setStatus(
+				`❌ Error: ${
+					error instanceof Error ? error.message : "Unknown error"
+				}`
+			);
+		}
+	};
+
+	return (
+		<div className='multi-basic-container'>
+			<div className='multi-basic-header'>
+				<h1>📈 GoCharting SDK Demo</h1>
+				<p>Professional Financial Charts with Built-in AutoFit ✨</p>
+			</div>
+
+			<div className='multi-basic-controls'>
+				<button
+					className='btn primary'
+					onClick={() => handleSymbolChange("BYBIT:FUTURE:BTCUSDT")}
+				>
+					₿ BTC/USDT
+				</button>
+				<button
+					className='btn primary'
+					onClick={() => handleSymbolChange("BYBIT:FUTURE:ETHUSDT")}
+				>
+					Ξ ETH/USDT
+				</button>
+				<button
+					className='btn primary'
+					onClick={() => handleSymbolChange("BYBIT:FUTURE:OGNUSDT")}
+				>
+					🌐 OGN/USDT
+				</button>
+				<button className='btn success' onClick={handleResubscribeAll}>
+					🔄 Resubscribe All
+				</button>
+			</div>
+
+			<div className='chart-container' ref={chartContainerRef}>
+				<div className='loading'>Loading chart...</div>
+			</div>
+
+			<div className='status'>{status}</div>
+		</div>
+	);
+};
+
+export default MultiBasicChart;

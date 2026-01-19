@@ -1,18 +1,21 @@
-import ChartDemo from "./components/ChartDemo";
-
-// Alternative components (uncomment to use)
-// import CombineChart from "./pages/CombineChart";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import HomePage from "./pages/HomePage";
 import AdvancedTradingPage from "./pages/AdvancedTradingPage";
+import MultiBasicPage from "./pages/MultiBasicPage";
 
 function App() {
-	// Default: Use the simplified ChartDemo that matches chart-sdk-codepen.html
-	// return <ChartDemo />;
-
-	// Alternative: Use the advanced trading page with order management
-	return <AdvancedTradingPage />;
-
-	// Alternative: Use the combine chart example
-	// return <CombineChart />;
+	return (
+		<Router>
+			<Routes>
+				<Route path='/' element={<HomePage />} />
+				<Route
+					path='/advanced-trading'
+					element={<AdvancedTradingPage />}
+				/>
+				<Route path='/multi-basic' element={<MultiBasicPage />} />
+			</Routes>
+		</Router>
+	);
 }
 
 export default App;
