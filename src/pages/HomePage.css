@@ -65,8 +65,8 @@
 	bottom: 0;
 	background: linear-gradient(
 		135deg,
-		rgba(255, 255, 255, 0.1) 0%,
-		rgba(255, 255, 255, 0) 100%
+		rgba(255, 255, 255, 0.25) 0%,
+		rgba(255, 255, 255, 0.05) 100%
 	);
 	opacity: 0;
 	transition: opacity 0.3s ease;
@@ -78,8 +78,9 @@
 
 .example-card:hover {
 	transform: translateY(-8px);
-	box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-	border-color: rgba(255, 255, 255, 0.4);
+	box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+	border-color: rgba(255, 255, 255, 0.6);
+	background: rgba(255, 255, 255, 0.25);
 }
 
 .card-icon {
@@ -93,6 +94,9 @@
 	font-size: 1.8rem;
 	margin-bottom: 15px;
 	font-weight: 600;
+	position: relative;
+	z-index: 1;
+	text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .example-card p {
@@ -100,6 +104,9 @@
 	line-height: 1.6;
 	margin-bottom: 20px;
 	opacity: 0.95;
+	position: relative;
+	z-index: 1;
+	text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .feature-list {
@@ -112,6 +119,9 @@
 	font-size: 0.95rem;
 	opacity: 0.9;
 	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	position: relative;
+	z-index: 1;
+	text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .feature-list li:last-child {

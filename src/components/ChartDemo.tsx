@@ -8,7 +8,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createChartDatafeed } from "../utils/chart-datafeed";
 import * as GoChartingSDK from "@gocharting/chart-sdk";
-import type { ChartInstance, ChartConfig } from "@gocharting/chart-sdk";
+import type {
+	ChartInstance,
+	ChartWrapper,
+	ChartConfig,
+} from "@gocharting/chart-sdk";
 import "./ChartDemo.css";
 
 // Type for the datafeed returned by createChartDatafeed
@@ -50,7 +54,7 @@ const EXCLUDED_INDICATORS = [
 export const ChartDemo = () => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
 
-	const chartWrapperRef = useRef<ChartInstance | null>(null);
+	const chartWrapperRef = useRef<ChartWrapper | null>(null);
 	const chartInstance = useRef<ChartInstance | null>(null);
 	const datafeedRef = useRef<ChartDatafeed | null>(null);
 	const [status, setStatus] = useState("Ready to load chart...");
@@ -83,8 +87,7 @@ export const ChartDemo = () => {
 			const chartConfig: ChartConfig = {
 				symbol: currentSymbol,
 				interval: "1D",
-				datafeed:
-					datafeedRef.current as unknown as ChartConfig["datafeed"],
+				datafeed: datafeedRef.current,
 				debugLog: true,
 				licenseKey: "demo-550e8400-e29b-41d4-a716-446655440000",
 				// Note: exclude.indicators accepts string[] at runtime but types say boolean

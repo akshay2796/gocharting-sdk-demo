@@ -3,6 +3,7 @@ import * as GoChartingSDK from "@gocharting/chart-sdk";
 import { createChartDatafeed } from "../utils/chart-datafeed";
 import type {
 	ChartInstance,
+	ChartWrapper,
 	ChartConfig,
 	Order,
 	Trade,
@@ -102,8 +103,8 @@ interface DemoAccount {
 
 export const ChartSDKAdvanced = () => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
-	// In the installed SDK, ChartInstance is both the wrapper and the component
-	const chartWrapperRef = useRef<ChartInstance | null>(null);
+	// ChartWrapper is the wrapper returned by createChart(), ChartInstance is the component
+	const chartWrapperRef = useRef<ChartWrapper | null>(null);
 	const chartInstanceRef = useRef<ChartInstance | null>(null);
 	const datafeedRef = useRef<Datafeed | null>(null);
 

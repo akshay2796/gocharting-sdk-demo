@@ -11,7 +11,7 @@ type AppCallback = NonNullable<ChartConfig["appCallback"]>;
 
 export const ChartSDK = () => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
-	const widgetRef = useRef<ChartInstance | null>(null);
+	const chartInstanceRef = useRef<ChartInstance | null>(null);
 	const { isSmallDevice, isMediumDevice } = useResponsive();
 	const isMobile = isSmallDevice || isMediumDevice;
 
@@ -51,9 +51,9 @@ export const ChartSDK = () => {
 		return () => {
 			clearTimeout(timer);
 			// Cleanup chart on unmount
-			if (widgetRef.current) {
+			if (chartInstanceRef.current) {
 				try {
-					widgetRef.current.destroy();
+					chartInstanceRef.current.destroy();
 				} catch (e) {
 					console.error("Error destroying chart:", e);
 				}
@@ -63,7 +63,7 @@ export const ChartSDK = () => {
 
 	// Helper methods
 	const updateChartBrokerData = () => {
-		if (!widgetRef.current) {
+		if (!chartInstanceRef.current) {
 			console.warn("Chart instance not available");
 			return;
 		}
@@ -76,7 +76,7 @@ export const ChartSDK = () => {
 		};
 
 		try {
-			widgetRef.current.setBrokerAccounts(demoBrokerData);
+			chartInstanceRef.current.setBrokerAccounts(demoBrokerData);
 			console.log("✅ Broker data updated successfully");
 		} catch (error) {
 			console.error("❌ Failed to update chart broker data:", error);
@@ -145,7 +145,7 @@ export const ChartSDK = () => {
 				enableTrading: true,
 				appCallback: handleAppCallback,
 				onReady: (chartInstance) => {
-					widgetRef.current = chartInstance;
+					chartInstanceRef.current = chartInstance;
 					setStatus("Chart loaded with simplified API!");
 
 					console.log("=== CHART READY - TRADING DIAGNOSTICS ===");
@@ -178,7 +178,7 @@ export const ChartSDK = () => {
 				chartConfig
 			);
 
-			widgetRef.current = chart;
+			chartInstanceRef.current = chart;
 		} catch (error) {
 			console.error("Error initializing chart:", error);
 			setStatus("Failed to initialize chart");

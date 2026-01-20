@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import * as GoChartingSDK from "@gocharting/chart-sdk";
-import type { ChartInstance } from "@gocharting/chart-sdk";
+import type { ChartInstance, ChartWrapper } from "@gocharting/chart-sdk";
 import { createChartDatafeed } from "../utils/chart-datafeed";
 import "./MultiBasicChart.css";
 
 const MultiBasicChart = () => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
-	// In the installed SDK, ChartInstance is both the wrapper and the component
-	const chartWrapperRef = useRef<ChartInstance | null>(null);
+	// ChartWrapper is the wrapper returned by createChart(), ChartInstance is the component
+	const chartWrapperRef = useRef<ChartWrapper | null>(null);
 	const chartInstanceRef = useRef<ChartInstance | null>(null);
 	const [status, setStatus] = useState<string>("Initializing chart...");
 	const [currentSymbol, setCurrentSymbol] = useState<string>(
