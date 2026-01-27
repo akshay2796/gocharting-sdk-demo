@@ -269,7 +269,7 @@ export const ChartSDKAdvanced = () => {
 					"gocharting-chart-container-advanced";
 			}
 
-			const chartConfig = {
+			const chartConfig: ChartConfig = {
 				symbol: "BYBIT:FUTURE:BTCUSDT",
 				interval: "1D",
 				datafeed: datafeed,
@@ -277,6 +277,12 @@ export const ChartSDKAdvanced = () => {
 				licenseKey: "demo-550e8400-e29b-41d4-a716-446655440000",
 				theme: "dark",
 				enableTrading: true,
+				trading: {
+					enableTrading: false,
+					showReverseButton: false,
+				},
+				disableSearch: true,
+				disableCompare: true,
 				appCallback: handleAppCallback,
 				onReady: (chartInstance) => {
 					// Store the actual chart instance from the callback
@@ -302,7 +308,7 @@ export const ChartSDKAdvanced = () => {
 						setStatus(`❌ Error creating chart: ${error.message}`);
 					}
 				},
-			} satisfies ChartConfig;
+			};
 
 			// Create chart - the same instance is returned and passed to onReady
 			const chart = GoChartingSDK.createChart(

@@ -162,41 +162,50 @@ const MultiBasicChart = () => {
 	};
 
 	return (
-		<div className='multi-basic-container'>
-			<div className='multi-basic-header'>
+		<div className='container'>
+			<div className='header'>
 				<h1>📈 GoCharting SDK Demo</h1>
 				<p>Professional Financial Charts with Built-in AutoFit ✨</p>
 			</div>
 
-			<div className='multi-basic-controls'>
+			<div className='controls'>
 				<button
+					id='symbol-btc-btn'
 					className='btn primary'
 					onClick={() => handleSymbolChange("BYBIT:FUTURE:BTCUSDT")}
 				>
 					₿ BTC/USDT
 				</button>
 				<button
+					id='symbol-eth-btn'
 					className='btn primary'
 					onClick={() => handleSymbolChange("BYBIT:FUTURE:ETHUSDT")}
 				>
 					Ξ ETH/USDT
 				</button>
 				<button
+					id='symbol-ogn-btn'
 					className='btn primary'
 					onClick={() => handleSymbolChange("BYBIT:FUTURE:OGNUSDT")}
 				>
 					🌐 OGN/USDT
 				</button>
-				<button className='btn success' onClick={handleResubscribeAll}>
+				<button
+					id='resubscribe-btn'
+					className='btn success'
+					onClick={handleResubscribeAll}
+				>
 					🔄 Resubscribe All
 				</button>
 			</div>
 
-			<div className='chart-container' ref={chartContainerRef}>
+			<div id='chart-container' ref={chartContainerRef}>
 				<div className='loading'>Loading chart...</div>
 			</div>
 
-			<div className='status'>{status}</div>
+			<div id='status' className='status'>
+				{status}
+			</div>
 		</div>
 	);
 };

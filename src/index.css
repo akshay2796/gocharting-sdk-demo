@@ -22,7 +22,6 @@
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
-
 body {
 	margin: 0;
 	min-width: 320px;
@@ -34,6 +33,7 @@ body {
 	min-height: 100vh;
 }
 
+/* 
 a {
 	font-weight: 500;
 	color: #4a90e2;
@@ -74,4 +74,4 @@ button:focus-visible {
 button:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
-}
+} */
