@@ -122,11 +122,6 @@ const MultiBasicChart = () => {
 			return;
 		}
 
-		if (currentSymbol === newSymbol) {
-			setStatus(`ℹ️ Already showing ${newSymbol}`);
-			return;
-		}
-
 		try {
 			setStatus(`🔄 Switching to ${newSymbol}...`);
 			chartInstanceRef.current.setSymbol(newSymbol);
