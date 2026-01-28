@@ -492,6 +492,8 @@ export const ChartSDKAdvanced = () => {
 			userTag: null,
 			segment: "FUTURE",
 			currency: "USDT",
+			showStopLossButton: true,
+			showTakeProfitButton: true,
 		};
 
 		currentOrderBook.current.push(newOrder);
@@ -552,6 +554,28 @@ export const ChartSDKAdvanced = () => {
 			value: executionPrice * newOrder.size,
 			commission: executionPrice * newOrder.size * 0.001,
 			timestamp: new Date().toISOString(),
+			datetime: new Date(),
+			timeStamp: new Date().getTime(),
+			tradeSize: newOrder.size,
+			productId: newOrder.productId,
+			status: "filled",
+			cost: executionPrice * newOrder.size,
+			fee: {
+				currency: "USDT",
+				cost: executionPrice * newOrder.size * 0.001, // 0.1% fee
+				rate: 0.001,
+			},
+			exchange: newOrder.exchange,
+			broker: "demo",
+			productType: "FUTURE",
+			security: {
+				symbol: newOrder.symbol,
+				exchange: newOrder.exchange,
+				segment: "FUTURE",
+				tick_size: security.tick_size || 0.01,
+				lot_size: security.contract_size || 1,
+			},
+			key: `demo-${newOrder.productId}-${tradeId}`,
 		};
 
 		currentTradeBook.current.push(newTrade);
@@ -633,6 +657,8 @@ export const ChartSDKAdvanced = () => {
 				currency: "USDT",
 				segment: "FUTURE",
 				isGC: true,
+				showStopLossButton: true,
+				showTakeProfitButton: true,
 			};
 
 			currentPositions.current.push(newPosition);
