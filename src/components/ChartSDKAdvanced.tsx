@@ -12,11 +12,44 @@ import type {
 	OrderType as SDKOrderType,
 	OrderStatus,
 	Datafeed,
+	SymbolInfo,
 } from "@gocharting/chart-sdk";
 import "./ChartSDKAdvanced.css";
 
 // Extract the appCallback type from ChartConfig
 type AppCallback = NonNullable<ChartConfig["appCallback"]>;
+
+/**
+ * Helper function to create a proper SymbolInfo object for demo trading
+ */
+const createDemoSymbolInfo = (
+	symbol: string,
+	exchange: string = "BYBIT",
+	segment: string = "FUTURE"
+): SymbolInfo => {
+	const cleanSymbol = symbol.replace(/^.*:/, ""); // Remove exchange prefix if present
+	const fullName = `${exchange}:${segment}:${cleanSymbol}`;
+
+	return {
+		// Required fields
+		symbol: cleanSymbol,
+		full_name: fullName,
+		description: `${cleanSymbol} Perpetual Futures`,
+		exchange: exchange,
+		type: "crypto",
+		session: "24x7",
+		timezone: "Etc/UTC",
+		ticker: cleanSymbol,
+		has_intraday: true,
+		quote_currency: "USDT",
+		supported_resolutions: ["1", "5", "15", "30", "60", "240", "1D", "1W"],
+
+		// Optional fields
+		segment: segment,
+		tick_size: 0.01,
+		contract_size: 1,
+	};
+};
 
 interface OrderHistoryItem {
 	timestamp: string;
@@ -114,6 +147,7 @@ export const ChartSDKAdvanced = () => {
 	const [takeProfit, setTakeProfit] = useState("");
 	const [orderType, setOrderType] = useState<"market" | "limit">("market");
 	const [limitPrice, setLimitPrice] = useState("");
+	const [pnlMultiplier, setPnlMultiplier] = useState(1);
 	const [status, setStatus] = useState("Loading chart...");
 	const [orderHistory, setOrderHistory] = useState<OrderHistoryItem[]>([
 		{
@@ -479,21 +513,17 @@ export const ChartSDKAdvanced = () => {
 			stopPrice: order.stopPrice || orderData.stopPrice || null,
 			productType: "FUTURE",
 			rejReason: null,
-			security: {
-				symbol: (orderData.symbol || currentSymbol.current).replace(
-					"BYBIT:FUTURE:",
-					""
-				),
-				exchange: "BYBIT",
-				segment: "FUTURE",
-				tick_size: 0.01,
-				lot_size: 0.001,
-			},
+			security: createDemoSymbolInfo(
+				orderData.symbol || currentSymbol.current,
+				"BYBIT",
+				"FUTURE"
+			),
 			userTag: null,
 			segment: "FUTURE",
 			currency: "USDT",
 			showStopLossButton: true,
 			showTakeProfitButton: true,
+			pnlMultiplier: pnlMultiplier,
 		};
 
 		currentOrderBook.current.push(newOrder);
@@ -534,7 +564,7 @@ export const ChartSDKAdvanced = () => {
 	const createPositionAndTrade = (
 		newOrder: Order,
 		_order: any, // Kept for API consistency with handleMarketOrderWithTPSL
-		security: any,
+		_security: any, // Kept for API consistency with handleMarketOrderWithTPSL
 		ltp: number
 	) => {
 		console.log("🔍 ===== CREATE POSITION AND TRADE DEBUG =====");
@@ -568,13 +598,11 @@ export const ChartSDKAdvanced = () => {
 			exchange: newOrder.exchange,
 			broker: "demo",
 			productType: "FUTURE",
-			security: {
-				symbol: newOrder.symbol,
-				exchange: newOrder.exchange,
-				segment: "FUTURE",
-				tick_size: security.tick_size || 0.01,
-				lot_size: security.contract_size || 1,
-			},
+			security: createDemoSymbolInfo(
+				newOrder.symbol,
+				newOrder.exchange,
+				"FUTURE"
+			),
 			key: `demo-${newOrder.productId}-${tradeId}`,
 		};
 
@@ -646,13 +674,11 @@ export const ChartSDKAdvanced = () => {
 				broker: "demo",
 				productType: "FUTURE",
 				underlying: newOrder.symbol,
-				security: {
-					symbol: newOrder.symbol,
-					exchange: newOrder.exchange,
-					segment: "FUTURE",
-					tick_size: security.tick_size || 0.01,
-					lot_size: security.contract_size || 1,
-				},
+				security: createDemoSymbolInfo(
+					newOrder.symbol,
+					newOrder.exchange,
+					"FUTURE"
+				),
 				key: `demo-${newOrder.productId}-${positionId}`,
 				currency: "USDT",
 				segment: "FUTURE",
@@ -986,6 +1012,21 @@ export const ChartSDKAdvanced = () => {
 							onChange={(e) => setLimitPrice(e.target.value)}
 							step='0.01'
 							disabled={orderType !== "limit"}
+						/>
+					</div>
+
+					<div className='trading-group'>
+						<label htmlFor='pnl-multiplier'>PnL Multiplier</label>
+						<input
+							type='number'
+							id='pnl-multiplier'
+							placeholder='1'
+							value={pnlMultiplier}
+							onChange={(e) =>
+								setPnlMultiplier(Number(e.target.value))
+							}
+							min='0.001'
+							step='0.001'
 						/>
 					</div>
 
